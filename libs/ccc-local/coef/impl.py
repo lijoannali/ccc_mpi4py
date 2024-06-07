@@ -484,7 +484,8 @@ def ccc(
         # we have several feature pairs to compare), because parallelization is
         # already performed at this level. Otherwise, more threads than
         # specified by the user are started.
-        cdist_parts_enable_threading = True if n_features_comp == 1 else False
+        
+        cdist_parts_enable_threading = False
 
         cdist_func = None
         map_func = executor.map
