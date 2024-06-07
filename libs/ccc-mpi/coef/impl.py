@@ -429,7 +429,8 @@ def ccc(
     # get number of cores to use
     comm = MPI.COMM_WORLD
     size = comm.Get_size()
-    n_jobs, default_n_threads = size 
+    rank = comm.Get_rank()
+    n_jobs = size 
 
     if internal_n_clusters is not None:
         _tmp_list = List()
@@ -462,9 +463,9 @@ def ccc(
     # partitions that maximimized the ARI
     max_parts = np.zeros((n_features_comp, 2), dtype=np.uint64)
 
-    with ThreadPoolExecutor(max_workers=default_n_threads) as executor:
+    with ThreadPoolExecutor(max_workers=size) as executor:
         # pre-compute the internal partitions for each object in parallel
-        inputs = get_chunks(n_features, default_n_threads, n_chunks_threads_ratio)
+        inputs = get_chunks(n_features, size, n_chunks_threads_ratio)
 
         def compute_parts(idxs):
             return np.array(
@@ -486,14 +487,8 @@ def ccc(
 
         cdist_func = None
         map_func = executor.map
-        if cdist_parts_enable_threading:
-            map_func = map
-
-            def cdist_func(x, y):
-                return cdist_parts_parallel(x, y, executor)
-
-        else:
-            cdist_func = cdist_parts_basic
+        
+        cdist_func = cdist_parts_basic
 
         # compute coefficients
         def compute_coef(idx_list):
@@ -544,7 +539,7 @@ def ccc(
             return max_ari_list, max_part_idx_list
 
         # iterate over all chunks of object pairs and compute the coefficient
-        inputs = get_chunks(n_features_comp, default_n_threads, n_chunks_threads_ratio)
+        inputs = get_chunks(n_features_comp, size, n_chunks_threads_ratio)
 
         for idx, (max_ari_list, max_part_idx_list) in zip(
             inputs, map_func(compute_coef, inputs)
