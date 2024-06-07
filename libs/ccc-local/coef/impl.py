@@ -425,11 +425,8 @@ def ccc(
     else:
         raise ValueError("Wrong combination of parameters x and y")
 
-    # get number of cores to use
-    # n_jobs = os.cpu_count() if n_jobs is None else n_jobs
-    # default_n_threads = (os.cpu_count() - n_jobs) if n_jobs < 0 else n_jobs
-
     #Replace thread parallelism with MPI implementation
+    # get number of cores to use
     comm = MPI.COMM_WORLD
     size = comm.Get_size()
     n_jobs, default_n_threads = size 
