@@ -15,7 +15,6 @@ from ccc.sklearn.metrics import adjusted_rand_index as ari
 from ccc.scipy.stats import rank
 from ccc.utils import chunker
 
-
 @njit(cache=True, nogil=True)
 def get_perc_from_k(k: int) -> list[float]:
     """
@@ -373,6 +372,7 @@ def ccc(
             singleton cases were found (-1; usually because input data has all the same
             value) or for categorical features (-2).
     """
+
     n_objects = None
     n_features = None
     # this is a boolean array of size n_features with True if the feature is numerical and False otherwise
@@ -413,6 +413,8 @@ def ccc(
 
             X = np.zeros((n_features, n_objects))
             X_numerical_type = np.full((n_features,), True, dtype=bool)
+
+            print("n features:", n_features)
 
             for idx in range(n_features):
                 X[idx, :], X_numerical_type[idx] = get_feature_type_and_encode(
