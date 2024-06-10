@@ -8,8 +8,8 @@ import pytest
 from sklearn.preprocessing import minmax_scale
 from sklearn.metrics import adjusted_rand_score as ari
 
-from ccc.coef import (
-    ccc,
+from ccclocal.coef import (
+    ccclocal,
     get_range_n_clusters,
     run_quantile_clustering,
     get_perc_from_k,
