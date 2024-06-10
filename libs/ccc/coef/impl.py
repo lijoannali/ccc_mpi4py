@@ -465,27 +465,24 @@ def ccc(
     size = comm.Get_size()
     rank = comm.Get_rank()
     n_jobs = size 
+    local_n = np.array([0]) # pre-compute the internal partitions for each object in parallel
 
-    #Allocate recv buffers
-    local_input = np.ndarray([1])
+    inputs = get_chunks(n_features, 2, n_chunks_threads_ratio) #hardcoded to make 2 chunks
 
     if rank == 0: 
-        print("0")
-        # pre-compute the internal partitions for each object in parallel
-        inputs = get_chunks(n_features, 2, n_chunks_threads_ratio) #hardcoded to make 2 chunks
+        local_n = np.array([1]) #hardcoded to length of 1
     
-    #print("Both lengths : ", len(inputs[0]), len(inputs[1]))
+    comm.Bcast(local_n, root=0)
+
+    local_input = np.ndarray([local_n[0]]) #Allocate recv buffer
 
     #All ranks: 
     #Scatter input to procs by rank
     comm.Scatter(inputs, local_input, 0)
 
-    print("Size of chunk on rank", rank, "is", len(inputs[rank]))
-    print("received chunk on rank", rank, "is length:", len(inputs[rank]))
+    print("Received chunk on rank", rank, "is length:", len(local_input))
 
-    for idx, ps in zip(inputs, executor.map(compute_parts, inputs)):
-    #Gather results and place into parts
-        parts[idx] = ps
+    parts[local_input] = compute_parts(local_input)
 
     # Below, there are two layers of parallelism: 1) parallel execution
     # across feature pairs and 2) the cdist_parts_parallel function, which
