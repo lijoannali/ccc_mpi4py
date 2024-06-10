@@ -9,6 +9,7 @@ import numpy as np
 from numpy.typing import NDArray
 from numba import njit
 from numba.typed import List
+from mpi4py import MPI
 
 from ccc.pytorch.core import unravel_index_2d
 from ccc.sklearn.metrics import adjusted_rand_index as ari
@@ -423,9 +424,12 @@ def ccc(
     else:
         raise ValueError("Wrong combination of parameters x and y")
 
+    #Replace thread parallelism with MPI implementation
     # get number of cores to use
-    n_jobs = os.cpu_count() if n_jobs is None else n_jobs
-    default_n_threads = (os.cpu_count() - n_jobs) if n_jobs < 0 else n_jobs
+    comm = MPI.COMM_WORLD
+    size = comm.Get_size()
+    rank = comm.Get_rank()
+    n_jobs = size 
 
     if internal_n_clusters is not None:
         _tmp_list = List()
@@ -458,94 +462,89 @@ def ccc(
     # partitions that maximimized the ARI
     max_parts = np.zeros((n_features_comp, 2), dtype=np.uint64)
 
-    with ThreadPoolExecutor(max_workers=default_n_threads) as executor:
-        # pre-compute the internal partitions for each object in parallel
-        inputs = get_chunks(n_features, default_n_threads, n_chunks_threads_ratio)
+    if rank == 0: 
+        with ThreadPoolExecutor(max_workers=size) as executor:
+            # pre-compute the internal partitions for each object in parallel
+            inputs = get_chunks(n_features, size, n_chunks_threads_ratio)
 
-        def compute_parts(idxs):
-            return np.array(
-                [get_parts(X[i], range_n_clusters, X_numerical_type[i]) for i in idxs]
-            )
+            def compute_parts(idxs):
+                return np.array(
+                    [get_parts(X[i], range_n_clusters, X_numerical_type[i]) for i in idxs]
+                )
 
-        for idx, ps in zip(inputs, executor.map(compute_parts, inputs)):
-            parts[idx] = ps
+            for idx, ps in zip(inputs, executor.map(compute_parts, inputs)):
+            #Gather results and place into parts
+                parts[idx] = ps
 
-        # Below, there are two layers of parallelism: 1) parallel execution
-        # across feature pairs and 2) the cdist_parts_parallel function, which
-        # also runs several threads to compare partitions using ari. In 2) we
-        # need to disable parallelization in case len(cm_values) > 1 (that is,
-        # we have several feature pairs to compare), because parallelization is
-        # already performed at this level. Otherwise, more threads than
-        # specified by the user are started.
-        cdist_parts_enable_threading = True if n_features_comp == 1 else False
-
-        cdist_func = None
-        map_func = executor.map
-        if cdist_parts_enable_threading:
-            map_func = map
-
-            def cdist_func(x, y):
-                return cdist_parts_parallel(x, y, executor)
-
-        else:
+            # Below, there are two layers of parallelism: 1) parallel execution
+            # across feature pairs and 2) the cdist_parts_parallel function, which
+            # also runs several threads to compare partitions using ari. In 2) we
+            # need to disable parallelization in case len(cm_values) > 1 (that is,
+            # we have several feature pairs to compare), because parallelization is
+            # already performed at this level. Otherwise, more threads than
+            # specified by the user are started.
+            
+            cdist_parts_enable_threading = False
             cdist_func = cdist_parts_basic
 
-        # compute coefficients
-        def compute_coef(idx_list):
-            """
-            Given a list of indexes representing each a pair of
-            objects/rows/genes, it computes the CCC coefficient for
-            each of them. This function is supposed to be used to parallelize
-            processing.
+            # compute coefficients
+            def compute_coef(idx_list):
+                """
+                Given a list of indexes representing each a pair of
+                objects/rows/genes, it computes the CCC coefficient for
+                each of them. This function is supposed to be used to parallelize
+                processing.
 
-            Args:
-                idx_list: a list of indexes (integers), each of them
-                  representing a pair of objects.
+                Args:
+                    idx_list: a list of indexes (integers), each of them
+                    representing a pair of objects.
 
-            Returns:
-                Returns a tuple with two arrays. These two arrays are the same
-                  arrays returned by the main cm function (cm_values and
-                  max_parts) but for a subset of the data.
-            """
-            n_idxs = len(idx_list)
-            max_ari_list = np.full(n_idxs, np.nan, dtype=float)
-            max_part_idx_list = np.zeros((n_idxs, 2), dtype=np.uint64)
+                Returns:
+                    Returns a tuple with two arrays. These two arrays are the same
+                    arrays returned by the main cm function (cm_values and
+                    max_parts) but for a subset of the data.
+                """
+                n_idxs = len(idx_list)
+                max_ari_list = np.full(n_idxs, np.nan, dtype=float)
+                max_part_idx_list = np.zeros((n_idxs, 2), dtype=np.uint64)
 
-            for idx, data_idx in enumerate(idx_list):
-                i, j = get_coords_from_index(n_features, data_idx)
+                for idx, data_idx in enumerate(idx_list):
+                    i, j = get_coords_from_index(n_features, data_idx)
 
-                # get partitions for the pair of objects
-                obji_parts, objj_parts = parts[i], parts[j]
+                    # get partitions for the pair of objects
+                    obji_parts, objj_parts = parts[i], parts[j]
 
-                # compute ari only if partitions are not marked as "missing"
-                # (negative values), which is assigned when partitions have
-                # one cluster (usually when all data in the feature has the same
-                # value).
-                if obji_parts[0, 0] == -2 or objj_parts[0, 0] == -2:
-                    continue
+                    # compute ari only if partitions are not marked as "missing"
+                    # (negative values), which is assigned when partitions have
+                    # one cluster (usually when all data in the feature has the same
+                    # value).
+                    if obji_parts[0, 0] == -2 or objj_parts[0, 0] == -2:
+                        continue
 
-                # compare all partitions of one object to the all the partitions
-                # of the other object, and get the maximium ARI
-                comp_values = cdist_func(
-                    obji_parts,
-                    objj_parts,
-                )
-                max_flat_idx = comp_values.argmax()
+                    # compare all partitions of one object to the all the partitions
+                    # of the other object, and get the maximium ARI
+                    comp_values = cdist_func(
+                        obji_parts,
+                        objj_parts,
+                    )
+                    max_flat_idx = comp_values.argmax()
 
-                max_idx = unravel_index_2d(max_flat_idx, comp_values.shape)
-                max_part_idx_list[idx] = max_idx
-                max_ari_list[idx] = np.max((comp_values[max_idx], 0.0))
+                    max_idx = unravel_index_2d(max_flat_idx, comp_values.shape)
+                    max_part_idx_list[idx] = max_idx
+                    max_ari_list[idx] = np.max((comp_values[max_idx], 0.0))
 
-            return max_ari_list, max_part_idx_list
+                return max_ari_list, max_part_idx_list
 
-        # iterate over all chunks of object pairs and compute the coefficient
-        inputs = get_chunks(n_features_comp, default_n_threads, n_chunks_threads_ratio)
+            # iterate over all chunks of object pairs and compute the coefficient
+            inputs = get_chunks(n_features_comp, size, n_chunks_threads_ratio)
 
-        for idx, (max_ari_list, max_part_idx_list) in zip(
-            inputs, map_func(compute_coef, inputs)
-        ):
-            cm_values[idx] = max_ari_list
-            max_parts[idx, :] = max_part_idx_list
+            for idx, (max_ari_list, max_part_idx_list) in zip(
+                inputs, executor.map(compute_coef, inputs)
+            ):
+                cm_values[idx] = max_ari_list
+                max_parts[idx, :] = max_part_idx_list
+    else : 
+        print ("This will break")
 
     # return an array of values or a single scalar, depending on the input data
     if cm_values.shape[0] == 1:
