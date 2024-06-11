@@ -466,28 +466,32 @@ def ccc(
     rank = comm.Get_rank()
     n_jobs = size 
     local_n = np.array([0], dtype=int) 
+    local_n_ccc = np.array([0], dtype=int) 
 
     # pre-compute the internal partitions for each object in parallel   
     inputs = get_chunks(n_features, 2, n_chunks_threads_ratio) #hardcoded to make 2 chunks
 
     # pre-compute partitions for ccc calculation in parallel
-    inputs = get_chunks(n_features_comp, size, n_chunks_threads_ratio)
+    inputs_ccc = get_chunks(n_features_comp, size, n_chunks_threads_ratio)
+    print("Inputs for ccc", inputs_ccc)
 
     if rank == 0: 
         local_n = np.array([1]) #hardcoded to length of 1
+        local_n_ccc = np.array([1])
     
     comm.Bcast(local_n, root=0)
+    comm.Bcast(local_n_ccc, root=0)
 
     #On all ranks: 
-    local_input = np.ndarray([local_n[0]]) #Allocate recv buffer
+    local_input = np.ndarray([local_n[0]], dtype=int) #Allocate recv buffer
+    local_input_ccc = np.ndarray([local_n_ccc[0]], dtype=int) #Allocate recv buffer
 
     #All ranks: 
     #Scatter input to procs by rank
     comm.Scatter(inputs, local_input, 0)
+    # comm.Scatter(inputs_ccc, local_input_ccc, 0)›››››
 
-    print("Value of local input 0th", local_input[0])
-
-    parts[int(local_input[0])] = compute_parts(int(local_input[0])) 
+    parts[local_input[0]] = compute_parts(local_input[0])
 
     # Below, there are two layers of parallelism: 1) parallel execution
     # across feature pairs and 2) the cdist_parts_parallel function, which
@@ -496,7 +500,6 @@ def ccc(
     # we have several feature pairs to compare), because parallelization is
     # already performed at this level. Otherwise, more threads than
     # specified by the user are started.
-
 
     # compute coefficients
     def compute_coef(idx_list):
@@ -552,6 +555,8 @@ def ccc(
     ):
         cm_values[idx] = max_ari_list
         max_parts[idx, :] = max_part_idx_list
+
+    # cm_values[int(local_input_ccc[0])] =    compute_coef(local_input_ccc)
 
 
     # return an array of values or a single scalar, depending on the input data
