@@ -464,9 +464,8 @@ def ccc(
     size = comm.Get_size()
     rank = comm.Get_rank()
     n_jobs = size 
-    local_n = np.array([99], dtype=int) 
-    local_n_ccc = np.array([99], dtype=int) 
-    print("local n is ", local_n)
+    local_n = np.zeros(1, dtype=int)
+    local_n_ccc = np.array(1, dtype=int)
 
     #On all ranks: 
     #Send buffers
