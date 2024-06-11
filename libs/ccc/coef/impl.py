@@ -465,31 +465,41 @@ def ccc(
     size = comm.Get_size()
     rank = comm.Get_rank()
     n_jobs = size 
-    local_n = np.array([0], dtype=int) 
-    local_n_ccc = np.array([0], dtype=int) 
+    local_n = np.array([99], dtype=int) 
+    local_n_ccc = np.array([99], dtype=int) 
+
+    #On all ranks: 
+    local_input = np.ndarray((1), dtype=int) #Allocate recv buffer
+    local_input_ccc = np.ndarray((1), dtype=int) #Allocate recv buffer
 
     # pre-compute the internal partitions for each object in parallel   
     inputs = get_chunks(n_features, 2, n_chunks_threads_ratio) #hardcoded to make 2 chunks
 
     # pre-compute partitions for ccc calculation in parallel
-    inputs_ccc = get_chunks(n_features_comp, size, n_chunks_threads_ratio)
+    inputs_ccc = get_chunks(n_features_comp, 2, n_chunks_threads_ratio) #hardcoded to make 2 chunks
     print("Inputs for ccc", inputs_ccc)
 
+    #Just for testing so the array can be split to 2 procs
+    if (len(inputs_ccc) == 1): 
+        # placeholder = np.ndarray([-1])
+        # np.concatenate((inputs_ccc, placeholder), axis=0)
+        inputs_ccc.append(np.array([1]))
+        inputs_ccc = [np.array([1]), np.array([0])]
+        print("type is", type(inputs_ccc), len(inputs_ccc))
     if rank == 0: 
         local_n = np.array([1]) #hardcoded to length of 1
         local_n_ccc = np.array([1])
+
     
     comm.Bcast(local_n, root=0)
     comm.Bcast(local_n_ccc, root=0)
 
-    #On all ranks: 
-    local_input = np.ndarray([local_n[0]], dtype=int) #Allocate recv buffer
-    local_input_ccc = np.ndarray([local_n_ccc[0]], dtype=int) #Allocate recv buffer
 
     #All ranks: 
     #Scatter input to procs by rank
     comm.Scatter(inputs, local_input, 0)
-    # comm.Scatter(inputs_ccc, local_input_ccc, 0)›››››
+    print("testing", inputs_ccc)
+    comm.Scatter(inputs_ccc, local_input_ccc, 0)
 
     parts[local_input[0]] = compute_parts(local_input[0])
 
@@ -550,6 +560,7 @@ def ccc(
         return max_ari_list, max_part_idx_list
 
     # iterate over all chunks of object pairs and compute the coefficient
+    print("On rank", rank, "local input_ccc=", local_input_ccc)
     for idx, (max_ari_list, max_part_idx_list) in zip(
         inputs, executor.map(compute_coef, inputs)
     ):
