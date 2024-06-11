@@ -454,10 +454,10 @@ def ccc(
     # partitions that maximimized the ARI
     max_parts = np.zeros((n_features_comp, 2), dtype=np.uint64)
 
-    def compute_parts(idxs):
-        return np.array(
-        [get_parts(X[i], range_n_clusters, X_numerical_type[i]) for i in idxs]
-    )
+    #Modified to take in single idx
+    def compute_parts(idx):
+        print("Type of idx", type(idx))
+        return get_parts(X[idx], range_n_clusters, X_numerical_type[idx])
 
     #Replace thread parallelism with MPI implementation
     # get number of cores to use
@@ -465,24 +465,29 @@ def ccc(
     size = comm.Get_size()
     rank = comm.Get_rank()
     n_jobs = size 
-    local_n = np.array([0]) # pre-compute the internal partitions for each object in parallel
+    local_n = np.array([0], dtype=int) 
 
+    # pre-compute the internal partitions for each object in parallel   
     inputs = get_chunks(n_features, 2, n_chunks_threads_ratio) #hardcoded to make 2 chunks
+
+    # pre-compute partitions for ccc calculation in parallel
+    inputs = get_chunks(n_features_comp, size, n_chunks_threads_ratio)
 
     if rank == 0: 
         local_n = np.array([1]) #hardcoded to length of 1
     
     comm.Bcast(local_n, root=0)
 
+    #On all ranks: 
     local_input = np.ndarray([local_n[0]]) #Allocate recv buffer
 
     #All ranks: 
     #Scatter input to procs by rank
     comm.Scatter(inputs, local_input, 0)
 
-    print("Received chunk on rank", rank, "is length:", len(local_input))
+    print("Value of local input 0th", local_input[0])
 
-    parts[local_input] = compute_parts(local_input)
+    parts[int(local_input[0])] = compute_parts(int(local_input[0])) 
 
     # Below, there are two layers of parallelism: 1) parallel execution
     # across feature pairs and 2) the cdist_parts_parallel function, which
@@ -492,7 +497,6 @@ def ccc(
     # already performed at this level. Otherwise, more threads than
     # specified by the user are started.
 
-    cdist_func = cdist_parts_basic
 
     # compute coefficients
     def compute_coef(idx_list):
@@ -530,7 +534,7 @@ def ccc(
 
             # compare all partitions of one object to the all the partitions
             # of the other object, and get the maximium ARI
-            comp_values = cdist_func(
+            comp_values = cdist_parts_basic(
                 obji_parts,
                 objj_parts,
             )
@@ -543,8 +547,6 @@ def ccc(
         return max_ari_list, max_part_idx_list
 
     # iterate over all chunks of object pairs and compute the coefficient
-    inputs = get_chunks(n_features_comp, size, n_chunks_threads_ratio)
-
     for idx, (max_ari_list, max_part_idx_list) in zip(
         inputs, executor.map(compute_coef, inputs)
     ):
