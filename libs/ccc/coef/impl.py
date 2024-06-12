@@ -467,6 +467,7 @@ def ccc(
     n_jobs = size 
     local_n = np.array([99], dtype=int) 
     local_n_ccc = np.array([99], dtype=int) 
+    print("local n is ", local_n)
 
     #On all ranks: 
     local_input = np.ndarray((1), dtype=int) #Allocate recv buffer
