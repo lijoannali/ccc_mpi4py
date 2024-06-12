@@ -500,7 +500,8 @@ def ccc(
     # specified by the user are started.
 
     # compute coefficients
-    def compute_coef(idx_list):
+        # compute coefficients
+    def compute_coef(idx):
         """
         Given a list of indexes representing each a pair of
         objects/rows/genes, it computes the CCC coefficient for
@@ -516,43 +517,40 @@ def ccc(
             arrays returned by the main cm function (cm_values and
             max_parts) but for a subset of the data.
         """
-        n_idxs = len(idx_list)
-        max_ari_list = np.full(n_idxs, np.nan, dtype=float)
-        max_part_idx_list = np.zeros((n_idxs, 2), dtype=np.uint64)
 
-        for idx, data_idx in enumerate(idx_list):
-            i, j = get_coords_from_index(n_features, data_idx)
+        max_ari_list = np.full(1, np.nan, dtype=float)
+        max_part_idx_list = np.zeros((1, 2), dtype=np.uint64)
 
-            # get partitions for the pair of objects
-            obji_parts, objj_parts = parts[i], parts[j]
+  
+        i, j = get_coords_from_index(n_features, idx)
 
-            # compute ari only if partitions are not marked as "missing"
-            # (negative values), which is assigned when partitions have
-            # one cluster (usually when all data in the feature has the same
-            # value).
-            if obji_parts[0, 0] == -2 or objj_parts[0, 0] == -2:
-                continue
+        # get partitions for the pair of objects
+        obji_parts, objj_parts = parts[i], parts[j]
 
-            # compare all partitions of one object to the all the partitions
-            # of the other object, and get the maximium ARI
-            comp_values = cdist_parts_basic(
-                obji_parts,
-                objj_parts,
-            )
-            max_flat_idx = comp_values.argmax()
+        #Still needs to be implemented: Joanna
+        # compute ari only if partitions are not marked as "missing"
+        # (negative values), which is assigned when partitions have
+        # one cluster (usually when all data in the feature has the same
+        # value).
+        # if obji_parts[0, 0] == -2 or objj_parts[0, 0] == -2:
+        #     continue
 
-            max_idx = unravel_index_2d(max_flat_idx, comp_values.shape)
-            max_part_idx_list[idx] = max_idx
-            max_ari_list[idx] = np.max((comp_values[max_idx], 0.0))
+
+        # compare all partitions of one object to the all the partitions
+        # of the other object, and get the maximium ARI
+        comp_values = cdist_parts_basic(
+            obji_parts,
+            objj_parts,
+        )
+        max_flat_idx = comp_values.argmax()
+
+        max_idx = unravel_index_2d(max_flat_idx, comp_values.shape)
+        max_part_idx_list[idx] = max_idx
+        max_ari_list[idx] = np.max((comp_values[max_idx], 0.0))
 
         return max_ari_list, max_part_idx_list
-
-    # iterate over all chunks of object pairs and compute the coefficient
-    # print("On rank", rank, "local input_ccc=", local_input_ccc)
-    # print("type of local input",type( local_input))
-    # print("type of local input ccc",type( local_input_ccc))
-
- 
+    
+    # iterate over all chunks of object pairs and compute the coefficient 
     cm_values[int(local_input_ccc[0])] =  compute_coef(int(local_input_ccc[0]))[0] #first in tuple = max_ari_list
     max_parts[int(local_input_ccc[0]), :] =  compute_coef(int(local_input_ccc[0]))[1] #second in tuple = max_part_idx_list
 
