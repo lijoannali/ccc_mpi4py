@@ -456,7 +456,6 @@ def ccc(
 
     #Modified to take in single idx
     def compute_parts(idx):
-        print("Type of idx", type(idx))
         return get_parts(X[idx], range_n_clusters, X_numerical_type[idx])
 
     #Replace thread parallelism with MPI implementation
@@ -470,36 +469,25 @@ def ccc(
     print("local n is ", local_n)
 
     #On all ranks: 
-    local_input = np.ndarray((1), dtype=int) #Allocate recv buffer
-    local_input_ccc = np.ndarray((1), dtype=int) #Allocate recv buffer
-
-    # pre-compute the internal partitions for each object in parallel   
-    inputs = get_chunks(n_features, 2, n_chunks_threads_ratio) #hardcoded to make 2 chunks
-
-    # pre-compute partitions for ccc calculation in parallel
-    inputs_ccc = get_chunks(n_features_comp, 2, n_chunks_threads_ratio) #hardcoded to make 2 chunks
-    print("Inputs for ccc", inputs_ccc)
+    #Send buffers
+    inputs = None
+    inputs_ccc = None 
 
     #Just for testing so the array can be split to 2 procs
-    if (len(inputs_ccc) == 1): 
-        # placeholder = np.ndarray([-1])
-        # np.concatenate((inputs_ccc, placeholder), axis=0)
-        inputs_ccc.append(np.array([1]))
-        inputs_ccc = [np.array([1]), np.array([0])]
-        print("type is", type(inputs_ccc), len(inputs_ccc))
     if rank == 0: 
-        local_n = np.array([1]) #hardcoded to length of 1
-        local_n_ccc = np.array([1])
+        # pre-compute the internal partitions for each object in parallel   
+        inputs = get_chunks(n_features, 2, n_chunks_threads_ratio) #hardcoded to make 2 chunks
+        inputs_ccc = get_chunks(n_features_comp, 2, n_chunks_threads_ratio) #hardcoded to make 2 chunks
+        if (len(inputs_ccc) == 1): 
+            inputs_ccc.append(np.array([1]))
 
-    
-    comm.Bcast(local_n, root=0)
-    comm.Bcast(local_n_ccc, root=0)
-
+    local_input = np.array([1], dtype=int) #Allocate recv buffer
+    local_input_ccc = np.array([1], dtype=int) #Allocate recv buffer
 
     #All ranks: 
     #Scatter input to procs by rank
     comm.Scatter(inputs, local_input, 0)
-    print("testing", inputs_ccc)
+    comm.Barrier() #remove later?
     comm.Scatter(inputs_ccc, local_input_ccc, 0)
 
     parts[local_input[0]] = compute_parts(local_input[0])
@@ -561,14 +549,13 @@ def ccc(
         return max_ari_list, max_part_idx_list
 
     # iterate over all chunks of object pairs and compute the coefficient
-    print("On rank", rank, "local input_ccc=", local_input_ccc)
-    for idx, (max_ari_list, max_part_idx_list) in zip(
-        inputs, executor.map(compute_coef, inputs)
-    ):
-        cm_values[idx] = max_ari_list
-        max_parts[idx, :] = max_part_idx_list
+    # print("On rank", rank, "local input_ccc=", local_input_ccc)
+    # print("type of local input",type( local_input))
+    # print("type of local input ccc",type( local_input_ccc))
 
-    # cm_values[int(local_input_ccc[0])] =    compute_coef(local_input_ccc)
+ 
+    cm_values[int(local_input_ccc[0])] =  compute_coef(int(local_input_ccc[0]))[0] #first in tuple = max_ari_list
+    max_parts[int(local_input_ccc[0]), :] =  compute_coef(int(local_input_ccc[0]))[1] #second in tuple = max_part_idx_list
 
 
     # return an array of values or a single scalar, depending on the input data

@@ -12,10 +12,11 @@ from numba.typed import List
 
 from mpi4py import MPI
 
-from ccclocal.pytorch.core import unravel_index_2d
-from ccclocal.sklearn.metrics import adjusted_rand_index as ari
-from ccclocal.scipy.stats import rank
-from ccclocal.utils import chunker
+#Need to change from ccc. to ccclocal. later
+from ccc.pytorch.core import unravel_index_2d
+from ccc.sklearn.metrics import adjusted_rand_index as ari
+from ccc.scipy.stats import rank
+from ccc.utils import chunker
 
 @njit(cache=True, nogil=True)
 def get_perc_from_k(k: int) -> list[float]:
@@ -305,7 +306,7 @@ def get_feature_type_and_encode(feature_data: NDArray) -> tuple[NDArray, bool]:
     return np.unique(feature_data, return_inverse=True)[1], data_type_is_numerical
 
 
-def ccclocal(
+def ccc(
     x: NDArray,
     y: NDArray = None,
     internal_n_clusters: Union[int, Iterable[int]] = None,
