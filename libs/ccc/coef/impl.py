@@ -301,6 +301,58 @@ def get_feature_type_and_encode(feature_data: NDArray) -> tuple[NDArray, bool]:
     # here np.unique with return_inverse encodes categorical values into numerical ones
     return np.unique(feature_data, return_inverse=True)[1], data_type_is_numerical
 
+#Modified to take in single idx
+def compute_parts(idx):
+    return get_parts(X[idx], range_n_clusters, X_numerical_type[idx])
+
+def compute_coef(idx):
+    """
+    Given a list of indexes representing each a pair of
+    objects/rows/genes, it computes the CCC coefficient for
+    each of them. This function is supposed to be used to parallelize
+    processing.
+
+    Args:
+        idx_list: a list of indexes (integers), each of them
+        representing a pair of objects.
+
+    Returns:
+        Returns a tuple with two arrays. These two arrays are the same
+        arrays returned by the main cm function (cm_values and
+        max_parts) but for a subset of the data.
+    """
+
+    max_ari_list = np.full(1, np.nan, dtype=float)
+    max_part_idx_list = np.zeros((1, 2), dtype=np.uint64)
+
+
+    i, j = get_coords_from_index(n_features, idx)
+
+    # get partitions for the pair of objects
+    obji_parts, objj_parts = parts[i], parts[j]
+
+    #Still needs to be implemented: Joanna
+    # compute ari only if partitions are not marked as "missing"
+    # (negative values), which is assigned when partitions have
+    # one cluster (usually when all data in the feature has the same
+    # value).
+    # if obji_parts[0, 0] == -2 or objj_parts[0, 0] == -2:
+    #     continue
+
+
+    # compare all partitions of one object to the all the partitions
+    # of the other object, and get the maximium ARI
+    comp_values = cdist_parts_basic(
+        obji_parts,
+        objj_parts,
+    )
+    max_flat_idx = comp_values.argmax()
+
+    max_idx = unravel_index_2d(max_flat_idx, comp_values.shape)
+    max_part_idx_list[idx] = max_idx
+    max_ari_list[idx] = np.max((comp_values[max_idx], 0.0))
+
+    return max_ari_list, max_part_idx_list
 
 def ccc(
     x: NDArray,
@@ -454,9 +506,6 @@ def ccc(
     # partitions that maximimized the ARI
     max_parts = np.zeros((n_features_comp, 2), dtype=np.uint64)
 
-    #Modified to take in single idx
-    def compute_parts(idx):
-        return get_parts(X[idx], range_n_clusters, X_numerical_type[idx])
 
     #Replace thread parallelism with MPI implementation
     # get number of cores to use
@@ -479,17 +528,18 @@ def ccc(
         # pre-compute the internal partitions for each object in parallel   
         inputs = np.ravel(get_chunks(n_features, 2, n_chunks_threads_ratio)) #hardcoded to make 2 chunks
         #Hardcode or pad this for now
-        inputs_ccc = np.ravel(get_chunks(n_features_comp, 2, n_chunks_threads_ratio)) #hardcoded to make 2 chunks
-        inputs_ccc = np.concatenate((inputs_ccc, np.array([1]))) # really should change to NaN? or None
+        inputs_ccc = np.ravel(get_chunks(n_features_comp, 2, n_chunks_threads_ratio))
+        inputs_ccc = np.concatenate((inputs_ccc, np.array([1]))) 
 
-    local_input = np.array([1], dtype=int) #Allocate recv buffer
-    local_input_ccc = np.array([1], dtype=int) #Allocate recv buffer
+    local_input = np.array([1, 1], dtype=int) #Allocate recv buffer
+    local_input_ccc = np.array([1, 1], dtype=int) #Allocate recv buffer
 
     #All ranks: 
     #Scatter input to procs by rank
     comm.Scatter(inputs, local_input, 0)
-    comm.Barrier() #remove later?
     comm.Scatter(inputs_ccc, local_input_ccc, 0)
+
+    print("rank", rank, "receives input", local_input, "and inputccc", local_input_ccc)
 
     parts[local_input[0]] = compute_parts(local_input[0])
 
@@ -503,54 +553,6 @@ def ccc(
 
     # compute coefficients
         # compute coefficients
-    def compute_coef(idx):
-        """
-        Given a list of indexes representing each a pair of
-        objects/rows/genes, it computes the CCC coefficient for
-        each of them. This function is supposed to be used to parallelize
-        processing.
-
-        Args:
-            idx_list: a list of indexes (integers), each of them
-            representing a pair of objects.
-
-        Returns:
-            Returns a tuple with two arrays. These two arrays are the same
-            arrays returned by the main cm function (cm_values and
-            max_parts) but for a subset of the data.
-        """
-
-        max_ari_list = np.full(1, np.nan, dtype=float)
-        max_part_idx_list = np.zeros((1, 2), dtype=np.uint64)
-
-  
-        i, j = get_coords_from_index(n_features, idx)
-
-        # get partitions for the pair of objects
-        obji_parts, objj_parts = parts[i], parts[j]
-
-        #Still needs to be implemented: Joanna
-        # compute ari only if partitions are not marked as "missing"
-        # (negative values), which is assigned when partitions have
-        # one cluster (usually when all data in the feature has the same
-        # value).
-        # if obji_parts[0, 0] == -2 or objj_parts[0, 0] == -2:
-        #     continue
-
-
-        # compare all partitions of one object to the all the partitions
-        # of the other object, and get the maximium ARI
-        comp_values = cdist_parts_basic(
-            obji_parts,
-            objj_parts,
-        )
-        max_flat_idx = comp_values.argmax()
-
-        max_idx = unravel_index_2d(max_flat_idx, comp_values.shape)
-        max_part_idx_list[idx] = max_idx
-        max_ari_list[idx] = np.max((comp_values[max_idx], 0.0))
-
-        return max_ari_list, max_part_idx_list
     
     # iterate over all chunks of object pairs and compute the coefficient 
     cm_values[int(local_input_ccc[0])] =  compute_coef(int(local_input_ccc[0]))[0] #first in tuple = max_ari_list
