@@ -464,8 +464,10 @@ def ccc(
     size = comm.Get_size()
     rank = comm.Get_rank()
     n_jobs = size 
-    local_n = np.zeros(1, dtype=int)
-    local_n_ccc = np.array(1, dtype=int)
+
+    #Lengths of input chunk on each proc (hardcoded)
+    local_n = np.empty(1, dtype=int)
+    local_n_ccc = np.empty(1, dtype=int)
 
     #On all ranks: 
     #Send buffers
@@ -475,10 +477,10 @@ def ccc(
     #Just for testing so the array can be split to 2 procs
     if rank == 0: 
         # pre-compute the internal partitions for each object in parallel   
-        inputs = get_chunks(n_features, 2, n_chunks_threads_ratio) #hardcoded to make 2 chunks
-        inputs_ccc = get_chunks(n_features_comp, 2, n_chunks_threads_ratio) #hardcoded to make 2 chunks
-        if (len(inputs_ccc) == 1): 
-            inputs_ccc.append(np.array([1]))
+        inputs = np.ravel(get_chunks(n_features, 2, n_chunks_threads_ratio)) #hardcoded to make 2 chunks
+        #Hardcode or pad this for now
+        inputs_ccc = np.ravel(get_chunks(n_features_comp, 2, n_chunks_threads_ratio)) #hardcoded to make 2 chunks
+        inputs_ccc = np.concatenate((inputs_ccc, np.array([1]))) # really should change to NaN? or None
 
     local_input = np.array([1], dtype=int) #Allocate recv buffer
     local_input_ccc = np.array([1], dtype=int) #Allocate recv buffer
