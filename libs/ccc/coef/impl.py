@@ -531,8 +531,14 @@ def ccc(
         inputs_ccc = np.ravel(get_chunks(n_features_comp, 2, n_chunks_threads_ratio))
         inputs_ccc = np.concatenate((inputs_ccc, np.array([1]))) 
 
-    local_input = np.array([1, 1], dtype=int) #Allocate recv buffer
-    local_input_ccc = np.array([1, 1], dtype=int) #Allocate recv buffer
+        #For debug
+        inputs = np.array([1,2], dtype=int)
+        inputs_ccc = np.array([3,4], dtype=int) #hardcoded to make 2 chunks
+        print("Inputs before scatter", inputs, "and inputccc", inputs_ccc)
+
+
+    local_input = np.empty([1, 1], dtype=int) #Allocate recv buffer
+    local_input_ccc = np.empty([1, 1], dtype=int) #Allocate recv buffer
 
     #All ranks: 
     #Scatter input to procs by rank
@@ -552,7 +558,6 @@ def ccc(
     # specified by the user are started.
 
     # compute coefficients
-        # compute coefficients
     
     # iterate over all chunks of object pairs and compute the coefficient 
     cm_values[int(local_input_ccc[0])] =  compute_coef(int(local_input_ccc[0]))[0] #first in tuple = max_ari_list
