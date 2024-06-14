@@ -302,10 +302,9 @@ def get_feature_type_and_encode(feature_data: NDArray) -> tuple[NDArray, bool]:
     return np.unique(feature_data, return_inverse=True)[1], data_type_is_numerical
 
 #Modified to take in single idx
-def compute_parts(idx):
+def compute_parts(idx, X, X_numerical_type, range_n_clusters):
     return get_parts(X[idx], range_n_clusters, X_numerical_type[idx])
-
-def compute_coef(idx):
+def compute_coef(idx, n_features, parts):
     """
     Given a list of indexes representing each a pair of
     objects/rows/genes, it computes the CCC coefficient for
@@ -423,7 +422,6 @@ def ccc(
             singleton cases were found (-1; usually because input data has all the same
             value) or for categorical features (-2).
     """
-
     n_objects = None
     n_features = None
     # this is a boolean array of size n_features with True if the feature is numerical and False otherwise
@@ -532,8 +530,8 @@ def ccc(
         inputs_ccc = np.concatenate((inputs_ccc, np.array([1]))) 
 
         #For debug
-        inputs = np.array([1,2], dtype=int)
-        inputs_ccc = np.array([3,4], dtype=int) #hardcoded to make 2 chunks
+        inputs = np.array([0,1], dtype=int)
+        inputs_ccc = np.array([0,1], dtype=int) #hardcoded to make 2 chunks
         print("Inputs before scatter", inputs, "and inputccc", inputs_ccc)
 
 
@@ -546,8 +544,9 @@ def ccc(
     comm.Scatter(inputs_ccc, local_input_ccc, 0)
 
     print("rank", rank, "receives input", local_input, "and inputccc", local_input_ccc)
-
-    parts[local_input[0]] = compute_parts(local_input[0])
+    
+    # print("type of data ", X[local_input[0, 0]], type(X[local_input[0, 0]]))
+    parts[local_input[0]] = compute_parts(local_input[0, 0], X, X_numerical_type, range_n_clusters)
 
     # Below, there are two layers of parallelism: 1) parallel execution
     # across feature pairs and 2) the cdist_parts_parallel function, which
@@ -560,8 +559,8 @@ def ccc(
     # compute coefficients
     
     # iterate over all chunks of object pairs and compute the coefficient 
-    cm_values[int(local_input_ccc[0])] =  compute_coef(int(local_input_ccc[0]))[0] #first in tuple = max_ari_list
-    max_parts[int(local_input_ccc[0]), :] =  compute_coef(int(local_input_ccc[0]))[1] #second in tuple = max_part_idx_list
+    cm_values[int(local_input_ccc[0])] =  compute_coef(int(local_input_ccc[0]), n_features, parts)[0] #first in tuple = max_ari_list
+    max_parts[int(local_input_ccc[0]), :] =  compute_coef(int(local_input_ccc[0]), n_features, parts)[1] #second in tuple = max_part_idx_list
 
 
     # return an array of values or a single scalar, depending on the input data
