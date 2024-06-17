@@ -147,7 +147,7 @@ def get_parts(
         # if the data is categorical, then the encoded feature is already the partition
         # only the first partition is filled, the rest will be -1 (missing)
         parts[0] = data.astype(np.int16)
-
+    print(parts.shape, "This is parts", parts)
     return parts
 
 
@@ -304,6 +304,7 @@ def get_feature_type_and_encode(feature_data: NDArray) -> tuple[NDArray, bool]:
 #Modified to take in single idx
 def compute_parts(idx, X, X_numerical_type, range_n_clusters):
     return get_parts(X[idx], range_n_clusters, X_numerical_type[idx])
+
 def compute_coef(idx, n_features, parts):
     """
     Given a list of indexes representing each a pair of
@@ -463,8 +464,6 @@ def ccc(
             X = np.zeros((n_features, n_objects))
             X_numerical_type = np.full((n_features,), True, dtype=bool)
 
-            print("n features:", n_features)
-
             for idx in range(n_features):
                 X[idx, :], X_numerical_type[idx] = get_feature_type_and_encode(
                     x.iloc[:, idx]
@@ -524,15 +523,16 @@ def ccc(
     #Just for testing so the array can be split to 2 procs
     if rank == 0: 
         # pre-compute the internal partitions for each object in parallel   
-        inputs = np.ravel(get_chunks(n_features, size, n_chunks_threads_ratio)) #hardcoded to make 2 chunks
-        #Hardcode or pad this for now
+        inputs = np.ravel(get_chunks(n_features, size, n_chunks_threads_ratio)) 
         inputs_ccc = np.ravel(get_chunks(n_features_comp, size, n_chunks_threads_ratio))
+
+        #hardcoded pad: 
         inputs_ccc = np.concatenate((inputs_ccc, np.array([1]))) 
 
         #For debug
         # inputs = np.array([0,1], dtype=int)
         # inputs_ccc = np.array([0,1], dtype=int) #hardcoded to make 2 chunks
-        print("Inputs before scatter", inputs, "and inputccc", inputs_ccc)
+        # print("Inputs before scatter", inputs, "and inputccc", inputs_ccc)
 
 
     local_input = np.empty([1, 1], dtype=int) #Allocate recv buffer
@@ -543,10 +543,11 @@ def ccc(
     comm.Scatter(inputs, local_input, 0)
     comm.Scatter(inputs_ccc, local_input_ccc, 0)
 
-    print("rank", rank, "receives input", local_input, "and inputccc", local_input_ccc)
+    # print("rank", rank, "receives input", local_input, "and inputccc", local_input_ccc)
     
     # print("type of data ", X[local_input[0, 0]], type(X[local_input[0, 0]]))
-    parts[local_input[0]] = compute_parts(local_input[0, 0], X, X_numerical_type, range_n_clusters)
+    parts[local_input[0, 0]] = compute_parts(local_input[0, 0], X, X_numerical_type, range_n_clusters)
+    print(parts.shape, "This is the final parts", parts)
 
     # Below, there are two layers of parallelism: 1) parallel execution
     # across feature pairs and 2) the cdist_parts_parallel function, which
