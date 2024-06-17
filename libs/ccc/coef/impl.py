@@ -512,7 +512,7 @@ def ccc(
     rank = comm.Get_rank()
     n_jobs = size 
 
-    #Lengths of input chunk on each proc (hardcoded)
+    #Lengths of input chunk on each proc (hardcoded & unused)
     local_n = np.empty(1, dtype=int)
     local_n_ccc = np.empty(1, dtype=int)
 
@@ -524,14 +524,14 @@ def ccc(
     #Just for testing so the array can be split to 2 procs
     if rank == 0: 
         # pre-compute the internal partitions for each object in parallel   
-        inputs = np.ravel(get_chunks(n_features, 2, n_chunks_threads_ratio)) #hardcoded to make 2 chunks
+        inputs = np.ravel(get_chunks(n_features, size, n_chunks_threads_ratio)) #hardcoded to make 2 chunks
         #Hardcode or pad this for now
-        inputs_ccc = np.ravel(get_chunks(n_features_comp, 2, n_chunks_threads_ratio))
+        inputs_ccc = np.ravel(get_chunks(n_features_comp, size, n_chunks_threads_ratio))
         inputs_ccc = np.concatenate((inputs_ccc, np.array([1]))) 
 
         #For debug
-        inputs = np.array([0,1], dtype=int)
-        inputs_ccc = np.array([0,1], dtype=int) #hardcoded to make 2 chunks
+        # inputs = np.array([0,1], dtype=int)
+        # inputs_ccc = np.array([0,1], dtype=int) #hardcoded to make 2 chunks
         print("Inputs before scatter", inputs, "and inputccc", inputs_ccc)
 
 
