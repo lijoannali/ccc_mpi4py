@@ -490,12 +490,6 @@ def ccc(
     if range_n_clusters.shape[0] == 0:
         raise ValueError(f"Data has too few objects: {n_objects}")
 
-    # store a set of partitions per row (object) in X as a multidimensional
-    # array, where the second dimension is the number of partitions per object.
-    parts = (
-        np.zeros((n_features, range_n_clusters.shape[0], n_objects), dtype=np.int16) - 1
-    )
-
     # cm_values stores the CCC coefficients
     n_features_comp = (n_features * (n_features - 1)) // 2
     cm_values = np.full(n_features_comp, np.nan)
@@ -520,6 +514,7 @@ def ccc(
     #Send buffers
     inputs = None
     inputs_ccc = None 
+    parts = None
 
     #Just for testing so the array can be split to 2 procs
     if rank == 0: 
@@ -530,6 +525,12 @@ def ccc(
         #hardcoded pad: 
         inputs_ccc = np.concatenate((inputs_ccc, np.array([1]))) 
 
+        # store a set of partitions per row (object) in X as a multidimensional
+        # array, where the second dimension is the number of partitions per object.
+        parts = (
+            np.zeros([n_features, range_n_clusters.shape[0], n_objects], dtype=np.int16) - 1
+        )
+        print("parts on rank 0", parts.shape)
         #For debug
         # inputs = np.array([0,1], dtype=int)
         # inputs_ccc = np.array([0,1], dtype=int) #hardcoded to make 2 chunks
@@ -547,8 +548,11 @@ def ccc(
     # print("rank", rank, "receives input", local_input, "and inputccc", local_input_ccc)
     
     # print("type of data ", X[local_input[0, 0]], type(X[local_input[0, 0]]))
-    parts[local_input[0, 0]] = compute_parts(local_input[0, 0], X, X_numerical_type, range_n_clusters)
-    print(parts.shape, "This is the final parts", parts, "rank", rank)
+    local_part = compute_parts(local_input[0, 0], X, X_numerical_type, range_n_clusters)
+    comm.Gather(local_part, parts, 0)
+
+    # if rank == 0: 
+        #print(parts.shape, "This is the final parts", parts, "rank", rank)
 
     # Below, there are two layers of parallelism: 1) parallel execution
     # across feature pairs and 2) the cdist_parts_parallel function, which
