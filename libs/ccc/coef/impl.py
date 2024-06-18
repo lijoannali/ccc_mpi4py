@@ -147,7 +147,7 @@ def get_parts(
         # if the data is categorical, then the encoded feature is already the partition
         # only the first partition is filled, the rest will be -1 (missing)
         parts[0] = data.astype(np.int16)
-    print(parts.shape, "This is parts", parts)
+    print(parts.shape, "This is parts", parts, "rank", rank)
     return parts
 
 
@@ -336,8 +336,9 @@ def compute_coef(idx, n_features, parts):
     # (negative values), which is assigned when partitions have
     # one cluster (usually when all data in the feature has the same
     # value).
-    # if obji_parts[0, 0] == -2 or objj_parts[0, 0] == -2:
-    #     continue
+    if obji_parts[0, 0] == -2 or objj_parts[0, 0] == -2:
+        return max_ari_list, max_part_idx_list
+
 
 
     # compare all partitions of one object to the all the partitions
@@ -547,7 +548,7 @@ def ccc(
     
     # print("type of data ", X[local_input[0, 0]], type(X[local_input[0, 0]]))
     parts[local_input[0, 0]] = compute_parts(local_input[0, 0], X, X_numerical_type, range_n_clusters)
-    print(parts.shape, "This is the final parts", parts)
+    print(parts.shape, "This is the final parts", parts, "rank", rank)
 
     # Below, there are two layers of parallelism: 1) parallel execution
     # across feature pairs and 2) the cdist_parts_parallel function, which
