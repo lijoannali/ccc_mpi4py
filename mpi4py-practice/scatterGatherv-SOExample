@@ -1,3 +1,15 @@
+# This example from SO uses Allgatherv to send 2D Arrays and 
+# gather them back on a 2D array 
+
+# The 2D arrays being sent have different numbers of rows, but all have 2 columns, the gather stacks them "vertically
+#
+# 2 x 2 
+# 2 x 2  --> 5 x 2 
+# 1 x 2 
+#
+# It would be harder if they had to be stacked "horizontally," since numpy uses row major order by default 
+
+
 from mpi4py import MPI
 import numpy as np 
 
@@ -9,8 +21,8 @@ size = comm.Get_size()
 cols = 2
 nrows = 2
 rows = np.array([1, 2, 3], dtype=np.int32) # why is this int32? This works as long as length = ranks
-#rows = nrows * np.ones((size), dtype=np.int32) # makes an array of 2s of length size, 2 = height of rows
-#rows[-1] = 1 #What is the point of this line?
+rows = nrows * np.ones((size), dtype=np.int32) # makes an array of 2s of length size, 2 = height of rows
+rows[-1] = 1 #What is the point of this line?
 
 # Construct some data
 data = [np.array((), dtype=np.double) for _ in range(size)] #data is an list of arrays of length size 
