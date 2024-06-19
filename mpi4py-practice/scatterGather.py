@@ -28,8 +28,8 @@ if rank == 0:
     local_n_ccc = np.array([1])
 
     #Arrays to gather results to 
-    results = np.empty([2, 2], dtype=int)
-    results_ccc = np.empty([2, 2], dtype=int)
+    results = np.zeros([2, 2], dtype=int)
+    results_ccc = np.zeros([2, 2], dtype=int)
 
 #Send size = [1] to all ranks
 comm.Bcast(local_n, root=0)
