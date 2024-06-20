@@ -147,7 +147,7 @@ def get_parts(
         # if the data is categorical, then the encoded feature is already the partition
         # only the first partition is filled, the rest will be -1 (missing)
         parts[0] = data.astype(np.int16)
-    print(parts.shape, "This is parts", parts, "rank", rank)
+    print("Shape of local part", parts.shape)
     return parts
 
 
@@ -362,7 +362,7 @@ def ccc(
     return_parts: bool = False,
     n_chunks_threads_ratio: int = 1,
     n_jobs: int = 1,
-) -> tuple[NDArray[float], NDArray[np.uint64], NDArray[np.int16]]:
+) -> tuple[NDArray[float], NDArray[np.uint64], NDArray[np.int16]]: #Maybe need to change number types around?
     """
     This is the main function that computes the Clustermatch Correlation
     Coefficient (CCC) between two arrays. The implementation supports numerical
@@ -514,7 +514,12 @@ def ccc(
     #Send buffers
     inputs = None
     inputs_ccc = None 
-    parts = None
+    # store a set of partitions per row (object) in X as a multidimensional
+    # array, where the second dimension is the number of partitions per object.
+    parts = (
+        np.zeros([n_features, range_n_clusters.shape[0], n_objects], dtype=np.int16) - 1
+    )
+    print("Shape of 3D parts", parts.shape)
 
     #Just for testing so the array can be split to 2 procs
     if rank == 0: 
@@ -525,11 +530,6 @@ def ccc(
         #hardcoded pad: 
         inputs_ccc = np.concatenate((inputs_ccc, np.array([1]))) 
 
-        # store a set of partitions per row (object) in X as a multidimensional
-        # array, where the second dimension is the number of partitions per object.
-        parts = (
-            np.zeros([n_features, range_n_clusters.shape[0], n_objects], dtype=np.int16) - 1
-        )
         print("parts on rank 0", parts.shape)
         #For debug
         # inputs = np.array([0,1], dtype=int)
@@ -548,8 +548,8 @@ def ccc(
     # print("rank", rank, "receives input", local_input, "and inputccc", local_input_ccc)
     
     # print("type of data ", X[local_input[0, 0]], type(X[local_input[0, 0]]))
-    local_part = compute_parts(local_input[0, 0], X, X_numerical_type, range_n_clusters)
-    comm.Gather(local_part, parts, 0)
+    local_part = compute_parts(local_input[0, 0], X, X_numerical_type, range_n_clusters) 
+    comm.Allgatherv(local_part, recvbuf = [parts,[20,20], [0, 20], MPI.INT16_T]) 
 
     # if rank == 0: 
         #print(parts.shape, "This is the final parts", parts, "rank", rank)
