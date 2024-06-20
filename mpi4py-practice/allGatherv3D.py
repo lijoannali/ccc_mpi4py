@@ -1,3 +1,9 @@
+'''
+The types of the send and recv buffers must match the type specified in 
+the MPI.Allgatherv function call. 
+Ex: MPI.DOUBLE and np.double buffers, or MPI.INT16_T and np.int16 buffers 
+
+'''
 from mpi4py import MPI 
 import numpy as np
 
@@ -15,8 +21,8 @@ size = comm.Get_size()
 # Construct some data
 # data = [np.array((), dtype=np.double) for _ in range(size)] #data is an list of arrays of length size 
 # data[rank] = np.array(rank+np.random.rand(rows[rank], cols), np.double) # Fills data in with random [cols x nrows] 2D arrays
-data1 = np.array([[1, 2, 3], [4, 5, 6]], dtype= np.double)
-data2 = np.array([[7, 8, 9], [10, 11, 12]], dtype= np.double)
+data1 = np.array([[1, 2, 3], [4, 5, 6]], dtype= np.int16)
+data2 = np.array([[7, 8, 9], [10, 11, 12]], dtype= np.int16)
 data = [data1, data2] 
 
 # Compute rows and offsets for Allgatherv
@@ -32,11 +38,11 @@ print(offsets)
 #    print(f"Offsets: {offsets}")
 
 # Prepare buffer for Allgatherv
-data_out = np.empty((2, 2, 3), dtype=np.double)
-comm.Allgather(
+data_out = np.empty((2, 2, 3), dtype=np.int16)
+comm.Allgatherv(
    data[rank],
-   data_out,
-   0)
+   recvbuf=[data_out, sendcounts, offsets, MPI.INT16_T])
+
 
 if (rank == 0):
    print(f"Data_out has shape {data_out.shape}")
