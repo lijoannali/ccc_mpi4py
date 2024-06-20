@@ -133,8 +133,7 @@ def get_parts(
         detected (partitions with one cluster), usually because of problems with the
         input data (it has all the same values, for example).
     """
-    parts = np.zeros((len(range_n_clusters), data.shape[0]), dtype=np.int16) - 1
-
+    parts = (np.zeros((len(range_n_clusters), data.shape[0]), dtype=np.int16) - 1)
     if data_is_numerical:
         for idx in range(len(range_n_clusters)):
             k = range_n_clusters[idx]
@@ -147,7 +146,6 @@ def get_parts(
         # if the data is categorical, then the encoded feature is already the partition
         # only the first partition is filled, the rest will be -1 (missing)
         parts[0] = data.astype(np.int16)
-    print("Shape of local part", parts.shape)
     return parts
 
 
@@ -303,7 +301,7 @@ def get_feature_type_and_encode(feature_data: NDArray) -> tuple[NDArray, bool]:
 
 #Modified to take in single idx
 def compute_parts(idx, X, X_numerical_type, range_n_clusters):
-    return get_parts(X[idx], range_n_clusters, X_numerical_type[idx])
+    return get_parts(X[idx], range_n_clusters, X_numerical_type[idx]).astype(np.int16)
 
 def compute_coef(idx, n_features, parts):
     """
@@ -519,7 +517,6 @@ def ccc(
     parts = (
         np.zeros([n_features, range_n_clusters.shape[0], n_objects], dtype=np.int16) - 1
     )
-    print("Shape of 3D parts", parts.shape)
 
     #Just for testing so the array can be split to 2 procs
     if rank == 0: 
@@ -530,7 +527,6 @@ def ccc(
         #hardcoded pad: 
         inputs_ccc = np.concatenate((inputs_ccc, np.array([1]))) 
 
-        print("parts on rank 0", parts.shape)
         #For debug
         # inputs = np.array([0,1], dtype=int)
         # inputs_ccc = np.array([0,1], dtype=int) #hardcoded to make 2 chunks
@@ -546,13 +542,12 @@ def ccc(
     comm.Scatter(inputs_ccc, local_input_ccc, 0)
 
     # print("rank", rank, "receives input", local_input, "and inputccc", local_input_ccc)
-    
     # print("type of data ", X[local_input[0, 0]], type(X[local_input[0, 0]]))
     local_part = compute_parts(local_input[0, 0], X, X_numerical_type, range_n_clusters) 
+    # print("Shape of local part", local_part.shape, local_part.dtype)
+    
     comm.Allgatherv(local_part, recvbuf = [parts,[20,20], [0, 20], MPI.INT16_T]) 
-
-    # if rank == 0: 
-        #print(parts.shape, "This is the final parts", parts, "rank", rank)
+    print("Shape of 3D parts", parts, parts.shape, parts.dtype)
 
     # Below, there are two layers of parallelism: 1) parallel execution
     # across feature pairs and 2) the cdist_parts_parallel function, which
