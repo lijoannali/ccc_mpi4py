@@ -518,20 +518,12 @@ def ccc(
         np.zeros([n_features, range_n_clusters.shape[0], n_objects], dtype=np.int16) - 1
     )
 
-    #Just for testing so the array can be split to 2 procs
-    if rank == 0: 
-        # pre-compute the internal partitions for each object in parallel   
-        inputs = np.ravel(get_chunks(n_features, size, n_chunks_threads_ratio)) 
-        inputs_ccc = np.ravel(get_chunks(n_features_comp, size, n_chunks_threads_ratio))
+    # pre-compute the internal partitions for each object in parallel   
+    inputs = np.ravel(get_chunks(n_features, size, n_chunks_threads_ratio)) 
+    inputs_ccc = np.ravel(get_chunks(n_features_comp, size, n_chunks_threads_ratio))
 
-        #hardcoded pad: 
-        inputs_ccc = np.concatenate((inputs_ccc, np.array([1]))) 
-
-        #For debug
-        # inputs = np.array([0,1], dtype=int)
-        # inputs_ccc = np.array([0,1], dtype=int) #hardcoded to make 2 chunks
-        # print("Inputs before scatter", inputs, "and inputccc", inputs_ccc)
-
+    #hardcoded pad: 
+    inputs_ccc = np.concatenate((inputs_ccc, np.array([1]))) 
 
     local_input = np.empty([1, 1], dtype=int) #Allocate recv buffer
     local_input_ccc = np.empty([1, 1], dtype=int) #Allocate recv buffer
@@ -546,7 +538,11 @@ def ccc(
     local_part = compute_parts(local_input[0, 0], X, X_numerical_type, range_n_clusters) 
     # print("Shape of local part", local_part.shape, local_part.dtype)
     
-    comm.Allgatherv(local_part, recvbuf = [parts,[20,20], [0, 20], MPI.INT16_T]) 
+    sendcounts = [n_features * len(X[idx]) for idx in inputs]
+    displacements = np.zeros(size, dtype=int)
+    displacements[1:] = (np.cumsum(sendcounts)[:-1])
+
+    comm.Allgatherv(local_part, recvbuf = [parts, sendcounts, displacements, MPI.INT16_T]) 
     print("Shape of 3D parts", parts, parts.shape, parts.dtype)
 
     # Below, there are two layers of parallelism: 1) parallel execution
