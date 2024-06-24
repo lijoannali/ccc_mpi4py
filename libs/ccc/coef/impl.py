@@ -234,6 +234,8 @@ def get_coords_from_index(n_obj: int, idx: int) -> tuple[int]:
     b = 1 - 2 * n_obj
     x = np.floor((-b - np.sqrt(b**2 - 8 * idx)) / 2)
     y = idx + x * (b + x + 2) / 2 + 1
+    print("nobject", n_obj, "input indx", idx)
+    print("i and j are", x, y, "rank", rank)
     return int(x), int(y)
 
 # 
@@ -325,11 +327,9 @@ def compute_coef(idx, n_features, parts):
 
 
     i, j = get_coords_from_index(n_features, idx)
-
+    
     # get partitions for the pair of objects
     obji_parts, objj_parts = parts[i], parts[j]
-
-    #Still needs to be implemented: Joanna
     # compute ari only if partitions are not marked as "missing"
     # (negative values), which is assigned when partitions have
     # one cluster (usually when all data in the feature has the same
@@ -519,7 +519,8 @@ def ccc(
     )
 
     # pre-compute the internal partitions for each object in parallel   
-    inputs = np.ravel(get_chunks(n_features, size, n_chunks_threads_ratio)) 
+    inputs = np.ravel(get_chunks(n_features, size, n_chunks_threads_ratio))
+   #  print(get_chunks(n_features, size, n_chunks_threads_ratio), "old input")
     inputs_ccc = np.ravel(get_chunks(n_features_comp, size, n_chunks_threads_ratio))
 
     #hardcoded pad: 
@@ -543,7 +544,6 @@ def ccc(
     displacements[1:] = (np.cumsum(sendcounts)[:-1])
 
     comm.Allgatherv(local_part, recvbuf = [parts, sendcounts, displacements, MPI.INT16_T]) 
-    print("Shape of 3D parts", parts, parts.shape, parts.dtype)
 
     # Below, there are two layers of parallelism: 1) parallel execution
     # across feature pairs and 2) the cdist_parts_parallel function, which
@@ -555,9 +555,9 @@ def ccc(
 
     # compute coefficients
     
-    # iterate over all chunks of object pairs and compute the coefficient 
-    cm_values[int(local_input_ccc[0])] =  compute_coef(int(local_input_ccc[0]), n_features, parts)[0] #first in tuple = max_ari_list
-    max_parts[int(local_input_ccc[0]), :] =  compute_coef(int(local_input_ccc[0]), n_features, parts)[1] #second in tuple = max_part_idx_list
+    # itera∏te over all chunks of object pairs and compute the coefficient 
+    cm_values[int(local_input_ccc[0, 0])] =  compute_coef(int(local_input_ccc[0, 0]), n_features, parts)[0] #first in tuple = max_ari_list
+    max_parts[int(local_input_ccc[0, 0]), :] =  compute_coef(int(local_input_ccc[0, 0]), n_features, parts)[1] #second in tuple = max_part_idx_list
 
 
     # return an array of values or a single scalar, depending on the input data
