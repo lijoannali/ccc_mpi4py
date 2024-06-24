@@ -38,7 +38,7 @@ print(offsets)
 #    print(f"Offsets: {offsets}")
 
 # Prepare buffer for Allgatherv
-data_out = np.empty((2, 2, 3), dtype=np.int16)
+data_out = np.zeros((2, 2, 3), dtype=np.int16)
 comm.Allgatherv(
    data[rank],
    recvbuf=[data_out, sendcounts, offsets, MPI.INT16_T])
