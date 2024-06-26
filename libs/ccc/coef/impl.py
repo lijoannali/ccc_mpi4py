@@ -2,7 +2,7 @@
 Contains function that implement the Clustermatch Correlation Coefficient (CCC).
 """
 import os
-# from concurrent.futures import ThreadPoolExecutor, as_completed
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Iterable, Union
 
 import numpy as np
@@ -187,30 +187,30 @@ def cdist_parts_basic(x: NDArray, y: NDArray) -> NDArray[float]:
     return res
 
 
-# def cdist_parts_parallel(
-#     x: NDArray, y: NDArray, executor: ThreadPoolExecutor
-# ) -> NDArray[float]:
-#     """
-#     It parallelizes cdist_parts_basic function.
+def cdist_parts_parallel(
+    x: NDArray, y: NDArray, executor: ThreadPoolExecutor
+) -> NDArray[float]:
+    """
+    It parallelizes cdist_parts_basic function.
 
-#     Args:
-#         x: same as in cdist_parts_basic
-#         y: same as in cdist_parts_basic
-#         executor: an pool executor where jobs will be submitted.
+    Args:
+        x: same as in cdist_parts_basic
+        y: same as in cdist_parts_basic
+        executor: an pool executor where jobs will be submitted.
 
-#     Results:
-#         Same as in cdist_parts_basic.
-#     """
-#     res = np.zeros((x.shape[0], y.shape[0]))
+    Results:
+        Same as in cdist_parts_basic.
+    """
+    res = np.zeros((x.shape[0], y.shape[0]))
 
-#     inputs = list(chunker(np.arange(res.shape[0]), 1))
+    inputs = list(chunker(np.arange(res.shape[0]), 1))
 
-#     tasks = {executor.submit(cdist_parts_basic, x[idxs], y): idxs for idxs in inputs}
-#     for t in as_completed(tasks):
-#         idx = tasks[t]
-#         res[idx, :] = t.result()
+    tasks = {executor.submit(cdist_parts_basic, x[idxs], y): idxs for idxs in inputs}
+    for t in as_completed(tasks):
+        idx = tasks[t]
+        res[idx, :] = t.result()
 
-#     return res
+    return res
 
 
 @njit(cache=True, nogil=True)
@@ -234,6 +234,8 @@ def get_coords_from_index(n_obj: int, idx: int) -> tuple[int]:
     b = 1 - 2 * n_obj
     x = np.floor((-b - np.sqrt(b**2 - 8 * idx)) / 2)
     y = idx + x * (b + x + 2) / 2 + 1
+    print("nobject", n_obj, "input indx", idx)
+    print("i and j are", x, y, "rank", rank)
     return int(x), int(y)
 
 # 
@@ -504,56 +506,42 @@ def ccc(
 
     #Lengths of input chunk on each proc (hardcoded & unused)
     local_n = np.empty(1, dtype=int)
+    local_n_ccc = np.empty(1, dtype=int)
 
     #On all ranks: 
     #Send buffers
     inputs = None
+    inputs_ccc = None 
     # store a set of partitions per row (object) in X as a multidimensional
     # array, where the second dimension is the number of partitions per object.
     parts = (
         np.zeros([n_features, range_n_clusters.shape[0], n_objects], dtype=np.int16) - 1
     )
-    print("internal n clusters", internal_n_clusters)
-    print("empty parts", parts.shape, parts)
 
     # pre-compute the internal partitions for each object in parallel   
     inputs = np.ravel(get_chunks(n_features, size, n_chunks_threads_ratio))
+   #  print(get_chunks(n_features, size, n_chunks_threads_ratio), "old input")
+    inputs_ccc = np.ravel(get_chunks(n_features_comp, size, n_chunks_threads_ratio))
+    inputs_ccc = np.concatenate((inputs_ccc, np.array([0], dtype=int)))
+
     local_input = np.empty([1, 1], dtype=int) #Allocate recv buffer
+    local_input_ccc = np.empty([1, 1], dtype=int) #Allocate recv buffer
 
     #All ranks: 
     #Scatter input to procs by rank
-    # print("Before the scatter")
-    #comm.Scatter(inputs, local_input, 0)
-    # print("After the scatter")
+    comm.Scatter(inputs, local_input, 0)
+    comm.Scatter(inputs_ccc, local_input_ccc, 0)
 
-    # local_part = compute_parts(local_input[0, 0], X, X_numerical_type, range_n_clusters)     
-    # sendcounts = [n_features * len(X[idx]) for idx in inputs]
-    # displacements = np.zeros(size, dtype=int)
-    # displacements[1:] = (np.cumsum(sendcounts)[:-1])
+    # print("rank", rank, "receives input", local_input, "and inputccc", local_input_ccc)
+    # print("type of data ", X[local_input[0, 0]], type(X[local_input[0, 0]]))
+    local_part = compute_parts(local_input[0, 0], X, X_numerical_type, range_n_clusters) 
+    # print("Shape of local part", local_part.shape, local_part.dtype)
+    
+    sendcounts = [n_features * len(X[idx]) for idx in inputs]
+    displacements = np.zeros(size, dtype=int)
+    displacements[1:] = (np.cumsum(sendcounts)[:-1])
 
-    # Replace lines below with the code commented out
-    # This is only for unit testing 
-    print("This is before the allgather")
-    #comm.Allgatherv(local_part, recvbuf = [parts, sendcounts, displacements, MPI.INT16_T]) 
-    print("rank", rank, "shape of parts", parts.shape, parts)
-    print("This is after the allgather")
-
-    #Joanna: need to change later, when second set of inputs isn't [0], but an array with multiple elements
-    # local_input_ccc = get_chunks(n_features_comp, size, n_chunks_threads_ratio)[0]
-    # cm_values[local_input_ccc[0]] =  compute_coef(local_input_ccc[0], n_features, parts)[0] #first in tuple = max_ari_list
-    # max_parts[local_input_ccc[0], :] =  compute_coef(local_input_ccc[0], n_features, parts)[1] #second in tuple = max_part_idx_list
-
-    # # return an array of values or a single scalar, depending on the input data
-    # if cm_values.shape[0] == 1:
-    #     if return_parts:
-    #         return cm_values[0], max_parts[0], parts
-    #     else:
-    #         return cm_values[0]
-
-    # if return_parts:
-    #     return cm_values, max_parts, parts
-    # else:
-    #     return cm_values
+    comm.Allgatherv(local_part, recvbuf = [parts, sendcounts, displacements, MPI.INT16_T]) 
 
     # Below, there are two layers of parallelism: 1) parallel execution
     # across feature pairs and 2) the cdist_parts_parallel function, which
@@ -566,26 +554,18 @@ def ccc(
     # compute coefficients
     
     # itera∏te over all chunks of object pairs and compute the coefficient 
-
-    # comm.Gatherv(local_part, recvbuf = [parts, sendcounts, displacements, MPI.INT16_T], root=0) 
-
-    # if rank == 0: 
-    #     #Joanna: need to change later, when second set of inputs isn't [0]
-    #     local_input_ccc = get_chunks(n_features_comp, size, n_chunks_threads_ratio)[0]
-    #     print("inputs_ccc", local_input_ccc, local_input_ccc.shape)
-    #     print(parts.shape, "shape of parts gathered", parts) #Joanna: hardcoding lines below w 0
-    #     cm_values[local_input_ccc[0]] =  compute_coef(local_input_ccc[0], n_features, parts)[0] #first in tuple = max_ari_list
-    #     max_parts[local_input_ccc[0], :] =  compute_coef(local_input_ccc[0], n_features, parts)[1] #second in tuple = max_part_idx_list
+    cm_values[int(local_input_ccc[0, 0])] =  compute_coef(int(local_input_ccc[0, 0]), n_features, parts)[0] #first in tuple = max_ari_list
+    max_parts[int(local_input_ccc[0, 0]), :] =  compute_coef(int(local_input_ccc[0, 0]), n_features, parts)[1] #second in tuple = max_part_idx_list
 
 
-    #     # return an array of values or a single scalar, depending on the input data
-    #     if cm_values.shape[0] == 1:
-    #         if return_parts:
-    #             return cm_values[0], max_parts[0], parts
-    #         else:
-    #             return cm_values[0]
+    # return an array of values or a single scalar, depending on the input data
+    if cm_values.shape[0] == 1:
+        if return_parts:
+            return cm_values[0], max_parts[0], parts
+        else:
+            return cm_values[0]
 
-    #     if return_parts:
-    #         return cm_values, max_parts, parts
-    #     else:
-    #         return cm_values
+    if return_parts:
+        return cm_values, max_parts, parts
+    else:
+        return cm_values
