@@ -522,38 +522,34 @@ def ccc(
 
     #All ranks: 
     #Scatter input to procs by rank
-    # print("Before the scatter")
-    #comm.Scatter(inputs, local_input, 0)
-    # print("After the scatter")
+    comm.Scatter(inputs, local_input, 0)
 
-    # local_part = compute_parts(local_input[0, 0], X, X_numerical_type, range_n_clusters)     
-    # sendcounts = [n_features * len(X[idx]) for idx in inputs]
-    # displacements = np.zeros(size, dtype=int)
-    # displacements[1:] = (np.cumsum(sendcounts)[:-1])
+    local_part = compute_parts(local_input[0, 0], X, X_numerical_type, range_n_clusters)     
+    sendcounts = [n_features * len(X[idx]) for idx in inputs]
+    displacements = np.zeros(size, dtype=int)
+    displacements[1:] = (np.cumsum(sendcounts)[:-1])
 
     # Replace lines below with the code commented out
     # This is only for unit testing 
-    print("This is before the allgather")
-    #comm.Allgatherv(local_part, recvbuf = [parts, sendcounts, displacements, MPI.INT16_T]) 
-    print("rank", rank, "shape of parts", parts.shape, parts)
-    print("This is after the allgather")
+    comm.Allgatherv(local_part, recvbuf = [parts, sendcounts, displacements, MPI.INT16_T]) 
+    # print("rank", rank, "shape of parts", parts.shape, parts)
 
     #Joanna: need to change later, when second set of inputs isn't [0], but an array with multiple elements
-    # local_input_ccc = get_chunks(n_features_comp, size, n_chunks_threads_ratio)[0]
-    # cm_values[local_input_ccc[0]] =  compute_coef(local_input_ccc[0], n_features, parts)[0] #first in tuple = max_ari_list
-    # max_parts[local_input_ccc[0], :] =  compute_coef(local_input_ccc[0], n_features, parts)[1] #second in tuple = max_part_idx_list
+    local_input_ccc = get_chunks(n_features_comp, size, n_chunks_threads_ratio)[0]
+    cm_values[local_input_ccc[0]] =  compute_coef(local_input_ccc[0], n_features, parts)[0] #first in tuple = max_ari_list
+    max_parts[local_input_ccc[0], :] =  compute_coef(local_input_ccc[0], n_features, parts)[1] #second in tuple = max_part_idx_list
 
-    # # return an array of values or a single scalar, depending on the input data
-    # if cm_values.shape[0] == 1:
-    #     if return_parts:
-    #         return cm_values[0], max_parts[0], parts
-    #     else:
-    #         return cm_values[0]
+    # return an array of values or a single scalar, depending on the input data
+    if cm_values.shape[0] == 1:
+        if return_parts:
+            return cm_values[0], max_parts[0], parts
+        else:
+            return cm_values[0]
 
-    # if return_parts:
-    #     return cm_values, max_parts, parts
-    # else:
-    #     return cm_values
+    if return_parts:
+        return cm_values, max_parts, parts
+    else:
+        return cm_values
 
     # Below, there are two layers of parallelism: 1) parallel execution
     # across feature pairs and 2) the cdist_parts_parallel function, which
