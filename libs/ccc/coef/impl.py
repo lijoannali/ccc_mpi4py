@@ -518,6 +518,15 @@ def ccc(
 
     # pre-compute the internal partitions for each object in parallel   
     inputs = np.ravel(get_chunks(n_features, size, n_chunks_threads_ratio))
+<<<<<<< Updated upstream
+=======
+   #  print(get_chunks(n_features, size, n_chunks_threads_ratio), "old input")
+    inputs_ccc = np.ravel(get_chunks(n_features_comp, size, n_chunks_threads_ratio))
+
+    #hardcoded pad: 
+    inputs_ccc = np.concatenate((inputs_ccc, np.array([0]))) 
+
+>>>>>>> Stashed changes
     local_input = np.empty([1, 1], dtype=int) #Allocate recv buffer
 
     #All ranks: 
