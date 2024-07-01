@@ -2,7 +2,7 @@
 Contains function that implement the Clustermatch Correlation Coefficient (CCC).
 """
 import os
-# from concurrent.futures import ThreadPoolExecutor, as_completed
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Iterable, Union
 
 import numpy as np
@@ -187,30 +187,30 @@ def cdist_parts_basic(x: NDArray, y: NDArray) -> NDArray[float]:
     return res
 
 
-# def cdist_parts_parallel(
-#     x: NDArray, y: NDArray, executor: ThreadPoolExecutor
-# ) -> NDArray[float]:
-#     """
-#     It parallelizes cdist_parts_basic function.
+def cdist_parts_parallel(
+    x: NDArray, y: NDArray, executor: ThreadPoolExecutor
+) -> NDArray[float]:
+    """
+    It parallelizes cdist_parts_basic function.
 
-#     Args:
-#         x: same as in cdist_parts_basic
-#         y: same as in cdist_parts_basic
-#         executor: an pool executor where jobs will be submitted.
+    Args:
+        x: same as in cdist_parts_basic
+        y: same as in cdist_parts_basic
+        executor: an pool executor where jobs will be submitted.
 
-#     Results:
-#         Same as in cdist_parts_basic.
-#     """
-#     res = np.zeros((x.shape[0], y.shape[0]))
+    Results:
+        Same as in cdist_parts_basic.
+    """
+    res = np.zeros((x.shape[0], y.shape[0]))
 
-#     inputs = list(chunker(np.arange(res.shape[0]), 1))
+    inputs = list(chunker(np.arange(res.shape[0]), 1))
 
-#     tasks = {executor.submit(cdist_parts_basic, x[idxs], y): idxs for idxs in inputs}
-#     for t in as_completed(tasks):
-#         idx = tasks[t]
-#         res[idx, :] = t.result()
+    tasks = {executor.submit(cdist_parts_basic, x[idxs], y): idxs for idxs in inputs}
+    for t in as_completed(tasks):
+        idx = tasks[t]
+        res[idx, :] = t.result()
 
-#     return res
+    return res
 
 
 @njit(cache=True, nogil=True)
