@@ -301,9 +301,10 @@ def get_feature_type_and_encode(feature_data: NDArray) -> tuple[NDArray, bool]:
 
 #Modified to take in single idx
 def compute_parts(idx, X, X_numerical_type, range_n_clusters):
-    return get_parts(X[idx], range_n_clusters, X_numerical_type[idx]).astype(np.int16)
+    return get_parts(X[idx], range_n_clusters, X_numerical_type[idx]).astype(np.int16) #Joanna: convert after numba changed int16 to int64
 
 def compute_coef(idx, n_features, parts):
+    print(f"compute_coef idx:{idx}, n_features:{n_features}, parts:{parts}")
     """
     Given a list of indexes representing each a pair of
     objects/rows/genes, it computes the CCC coefficient for
@@ -320,9 +321,8 @@ def compute_coef(idx, n_features, parts):
         max_parts) but for a subset of the data.
     """
 
-    max_ari_list = np.full(1, np.nan, dtype=float)
-    max_part_idx_list = np.zeros((1, 2), dtype=np.uint64)
-
+    max_ari_list = np.full(1, np.nan, dtype=float) #Joanna: need to change 1 to n_idxs
+    max_part_idx_list = np.zeros((1, 2), dtype=np.uint64) #Joanna: change 1 to n_idxs
 
     i, j = get_coords_from_index(n_features, idx)
     
@@ -566,6 +566,8 @@ def ccc(
     # compute coefficients
     
     # itera∏te over all chunks of object pairs and compute the coefficient 
+
+    #Joanna: this is the real implementation to use: s
 
     # comm.Gatherv(local_part, recvbuf = [parts, sendcounts, displacements, MPI.INT16_T], root=0) 
 
