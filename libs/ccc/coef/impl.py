@@ -513,8 +513,8 @@ def ccc(
     parts = (
         np.zeros([n_features, range_n_clusters.shape[0], n_objects], dtype=np.int16) - 1
     )
-    print("internal n clusters", internal_n_clusters)
-    print("empty parts", parts.shape, parts)
+    # print("internal n clusters", internal_n_clusters)
+    # print("empty parts", parts.shape, parts)
 
     # pre-compute the internal partitions for each object in parallel   
     inputs = np.ravel(get_chunks(n_features, size, n_chunks_threads_ratio))
