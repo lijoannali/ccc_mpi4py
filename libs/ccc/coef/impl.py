@@ -1,6 +1,9 @@
 """
 Contains function that implement the Clustermatch Correlation Coefficient (CCC).
 """
+from mpi4py import MPI
+from mpi4py.futures import MPIPoolExecutor
+
 import os
 from concurrent.futures import ThreadPoolExecutor, as_completed, ProcessPoolExecutor
 from typing import Iterable, Union
@@ -455,7 +458,9 @@ def compute_coef(params):
     pvalues = np.full(n_idxs, np.nan, dtype=float)
 
     for idx, data_idx in enumerate(idx_list):
-        i, j = get_coords_from_index(n_features, data_idx) #Joanna: line with long execution time
+        i, j = get_coords_from_index(
+            n_features, data_idx
+        )  # Joanna: line with long execution time
 
         # get partitions for the pair of objects
         obji_parts, objj_parts = parts[i], parts[j]
@@ -469,8 +474,10 @@ def compute_coef(params):
 
         # compare all partitions of one object to the all the partitions
         # of the other object, and get the maximium ARI
-        max_ari_list[idx], max_part_idx_list[idx] = compute_ccc( #Joanna: line with medium execution time
-            obji_parts, objj_parts, cdist_func
+        max_ari_list[idx], max_part_idx_list[idx] = (
+            compute_ccc(  # Joanna: line with medium execution time
+                obji_parts, objj_parts, cdist_func
+            )
         )
 
         # compute p-value if requested
@@ -523,7 +530,7 @@ def ccc(
     internal_n_clusters: Union[int, Iterable[int]] = None,
     return_parts: bool = False,
     n_chunks_threads_ratio: int = 1,
-    n_jobs: int = 1,
+    n_jobs: int = None, #Joanna: hardcode to 2 procs 
     pvalue_n_perms: int = None,
     partitioning_executor: str = "thread",
 ) -> tuple[NDArray[float], NDArray[float], NDArray[np.uint64], NDArray[np.int16]]:
@@ -656,7 +663,9 @@ def ccc(
         internal_n_clusters = _tmp_list
 
     # get matrix of partitions for each object pair
-    range_n_clusters = get_range_n_clusters(n_objects, internal_n_clusters) #Joanna: Line with long execution time
+    range_n_clusters = get_range_n_clusters(
+        n_objects, internal_n_clusters
+    )  # Joanna: Line with long execution time
 
     if range_n_clusters.shape[0] == 0:
         raise ValueError(f"Data has too few objects: {n_objects}")
@@ -676,6 +685,11 @@ def ccc(
     # partitions that maximimized the ARI
     max_parts = np.zeros((n_features_comp, 2), dtype=np.uint64)
 
+    comm = MPI.COMM_WORLD
+    size = comm.Get_size()
+    rank = comm.Get_rank()
+    n_jobs = size 
+    
     with (
         ThreadPoolExecutor(max_workers=default_n_threads) as executor,
         ProcessPoolExecutor(max_workers=default_n_threads) as pexecutor,
@@ -706,7 +720,7 @@ def ccc(
         inputs = [
             [
                 (
-                    feature_k_pair,
+                    feature_k_pair, 
                     X[feature_k_pair[0]],
                     X_numerical_type[feature_k_pair[0]],
                 )
@@ -715,7 +729,9 @@ def ccc(
             for chunk in inputs
         ]
 
-        for params, ps in zip(inputs, map_func(get_feature_parts, inputs)): #Joanna: Loop with long execution time
+        for params, ps in zip(
+            inputs, map_func(get_feature_parts, inputs)
+        ):  # Joanna: Loop with long execution time
             # get the set of feature indexes and cluster indexes
             f_idxs = [p[0][0] for p in params]
             c_idxs = [p[0][1] for p in params]
@@ -759,7 +775,11 @@ def ccc(
             for i in inputs
         ]
 
-        for params, (max_ari_list, max_part_idx_list, pvalues) in zip( #Joanna: line with long execution time
+        for params, (
+            max_ari_list,
+            max_part_idx_list,
+            pvalues,
+        ) in zip(  # Joanna: line with long execution time
             inputs, map_func(compute_coef, inputs)
         ):
             f_idx = params[0]
