@@ -692,7 +692,7 @@ def ccc(
     
     with (
         ThreadPoolExecutor(max_workers=default_n_threads) as executor,
-        ProcessPoolExecutor(max_workers=default_n_threads) as pexecutor,
+        MPIPoolExecutor(max_workers=default_n_threads) as pexecutor,
     ):
         map_func = map
         if default_n_threads > 1:
