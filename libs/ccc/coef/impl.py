@@ -251,7 +251,7 @@ def cdist_parts_parallel(
     res = np.zeros((x.shape[0], y.shape[0]))
 
     inputs = get_chunks(res.shape[0], executor._max_workers, 1)
-
+    print(f'cdist threadpool, thread: {current_thread().name}')
     tasks = {executor.submit(cdist_parts_basic, x[idxs], y): idxs for idxs in inputs}
     for t in as_completed(tasks):
         idx = tasks[t]
@@ -507,6 +507,7 @@ def compute_coef(params):
 
             for params, p_ccc_val in zip(
                 p_inputs,
+                print(f'Inner parallel pt, thread: {current_thread().name}')
                 executor.map(
                     compute_ccc_perms,
                     p_inputs,
@@ -731,6 +732,7 @@ def ccc(
 
         for params, ps in zip(
             inputs, map_func(get_feature_parts, inputs)
+            print(f'after flatten input, rank: {rank}')
         ):  # Joanna: Loop with long execution time
             # get the set of feature indexes and cluster indexes
             f_idxs = [p[0][0] for p in params]
@@ -782,11 +784,13 @@ def ccc(
         ) in zip(  # Joanna: line with long execution time
             inputs, map_func(compute_coef, inputs)
         ):
+            print(f'calc max lists, rank:, {rank}')
             f_idx = params[0]
 
             cm_values[f_idx] = max_ari_list
             max_parts[f_idx, :] = max_part_idx_list
             cm_pvalues[f_idx] = pvalues
+            print(f'calc max lists, thread: {current_thread().name}')
 
     # return an array of values or a single scalar, depending on the input data
     if cm_values.shape[0] == 1:
