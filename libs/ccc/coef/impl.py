@@ -463,7 +463,7 @@ def compute_coef(params):
     for idx, data_idx in enumerate(idx_list):
         i, j = get_coords_from_index(
             n_features, data_idx
-        )  # Joanna: line with long execution time
+        )  # Joanna: line with long execution time (Not currently parallelized)
 
         # get partitions for the pair of objects
         obji_parts, objj_parts = parts[i], parts[j]
@@ -654,7 +654,7 @@ def ccc(
     # get number of cores to use
     n_jobs = os.cpu_count() if n_jobs is None else n_jobs
     default_n_threads = (os.cpu_count() - n_jobs) if n_jobs < 0 else n_jobs
-
+    #hardcode for testing 
     if internal_n_clusters is not None:
         _tmp_list = List()
 
@@ -669,7 +669,7 @@ def ccc(
     # get matrix of partitions for each object pair
     range_n_clusters = get_range_n_clusters(
         n_objects, internal_n_clusters
-    )  # Joanna: Line with long execution time
+    )  # Joanna: Line with long execution time (Not currently parallelized)
 
     if range_n_clusters.shape[0] == 0:
         raise ValueError(f"Data has too few objects: {n_objects}")
@@ -703,6 +703,7 @@ def ccc(
                 map_func = executor.map
             elif partitioning_executor == "process":
                 map_func = pexecutor.map
+                print("using pexecutor")
 
         # pre-compute the internal partitions for each object in parallel
 
@@ -731,7 +732,7 @@ def ccc(
             ]
             for chunk in inputs
         ]
-
+        # 1st Parallel Step / Partitioning 
         for params, ps in zip(
             inputs, map_func(get_feature_parts, inputs)
         ):  # Joanna: Loop with long execution time
@@ -759,11 +760,13 @@ def ccc(
 
         if default_n_threads > 1:
             if n_features_comp == 1:
+                #Joanna: This sets up parameters for compute_coef which are passed through inputs
                 map_func = map
                 cdist_executor = executor
                 inner_executor = pexecutor
 
             else:
+                #Joanna: This means cdist_parts_basic is used instead of cdist_parts_parallel
                 map_func = pexecutor.map
 
         # iterate over all chunks of object pairs and compute the coefficient
