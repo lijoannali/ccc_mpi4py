@@ -13,7 +13,9 @@ from numpy.typing import NDArray
 from numba import njit
 from numba.typed import List
 
+#For debugging
 import threading
+import time 
 from ccc.pytorch.core import unravel_index_2d
 from ccc.sklearn.metrics import adjusted_rand_index as ari
 from ccc.scipy.stats import rank
@@ -252,7 +254,7 @@ def cdist_parts_parallel(
     res = np.zeros((x.shape[0], y.shape[0]))
 
     inputs = get_chunks(res.shape[0], executor._max_workers, 1)
-    print(f'cdist threadpool, thread: {threading.current_thread().name}')
+    # print(f'cdist threadpool, thread: {threading.current_thread().name}')
     tasks = {executor.submit(cdist_parts_basic, x[idxs], y): idxs for idxs in inputs}
     for t in as_completed(tasks):
         idx = tasks[t]
@@ -513,7 +515,7 @@ def compute_coef(params):
                     p_inputs,
                 ),
             ):
-                print(f'Inner parallel pt, thread: {threading.current_thread().name}')
+                # print(f'Inner parallel pt, thread: {threading.current_thread().name}')
                 p_idx = params[0]
 
                 p_ccc_values[p_idx] = p_ccc_val
@@ -690,10 +692,9 @@ def ccc(
     comm = MPI.COMM_WORLD
     size = comm.Get_size()
     rank = comm.Get_rank()
-    n_jobs = size 
     
     with (
-        ThreadPoolExecutor(max_workers=default_n_threads) as executor,
+        ThreadPoolExecutor(max_workers=2, thread_name_prefix='PartitioningThread') as executor, #Joanna: added param to give threads custom name prefix
         MPIPoolExecutor(max_workers=default_n_threads) as pexecutor,
     ):
         map_func = map
@@ -735,7 +736,10 @@ def ccc(
             inputs, map_func(get_feature_parts, inputs)
         ):  # Joanna: Loop with long execution time
             # get the set of feature indexes and cluster indexes
-            print(f'after flatten input, rank: {rank}')
+            # time.sleep(.5) #To make more threads run
+            print(f'after flatten input, rank: {rank} thread {threading.current_thread().name}')
+            for thread in threading.enumerate():
+                print(f'thread names, {thread.name}')
             f_idxs = [p[0][0] for p in params]
             c_idxs = [p[0][1] for p in params]
 
@@ -791,7 +795,8 @@ def ccc(
             cm_values[f_idx] = max_ari_list
             max_parts[f_idx, :] = max_part_idx_list
             cm_pvalues[f_idx] = pvalues
-            print(f'calc max lists, thread: {threading.current_thread().name}')
+            # print("num threads", len(executor._threads))
+            # print(f'calc max lists, thread: {threading.current_thread().name}')
 
     # return an array of values or a single scalar, depending on the input data
     if cm_values.shape[0] == 1:
