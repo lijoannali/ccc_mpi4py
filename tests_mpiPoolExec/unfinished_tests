@@ -1,0 +1,552 @@
+
+
+def test_get_chunks_n_small():
+    # n = 10
+    n_comp = 10
+    n_threads = 2
+
+    cs = get_chunks(n_comp, n_threads)
+
+    # for this cases, an automatic ratio will avoid singleton chunks, and
+    # instead will generate n_threads groups
+    assert len(cs) == 2
+    assert set(map(len, cs)) == {5}
+    assert {x for i in cs for x in i} == set(np.arange(n_comp))
+
+    # n = 10
+    n_comp = 10
+    n_threads = 5
+
+    cs = get_chunks(n_comp, n_threads)
+
+    assert len(cs) == 5
+    assert set(map(len, cs)) == {2}
+    assert {x for i in cs for x in i} == set(np.arange(n_comp))
+
+    # n = 11
+    n_comp = 11
+    n_threads = 2
+
+    cs = get_chunks(n_comp, n_threads)
+
+    # for this case, it will avoid singleton chunks
+    assert len(cs) == 2
+    assert set(map(len, cs)) == {5, 6}
+    assert {x for i in cs for x in i} == set(np.arange(n_comp))
+
+    # n = 10 and n_threads is odd
+    n_comp = 10
+    n_threads = 3
+
+    cs = get_chunks(n_comp, n_threads)
+
+    assert len(cs) == 3
+    assert set(map(len, cs)) == {4, 2}
+    assert {x for i in cs for x in i} == set(np.arange(n_comp))
+
+
+def test_get_chunks_n_small_n_threads_large():
+    # in all these cases, n_thread is larger than n_comp / 2, but always
+    # smaller than n_comp. The problem in this test is that we want to make sure
+    # that we are using all threads
+
+    # n_threads = 6
+    n_comp = 10
+    n_threads = 6
+    cs = get_chunks(n_comp, n_threads)
+    assert len(cs) == 6
+    assert set(map(len, cs)) == {1, 2}
+    assert {x for i in cs for x in i} == set(np.arange(n_comp))
+
+    # n_threads = 7
+    n_comp = 10
+    n_threads = 7
+    cs = get_chunks(n_comp, n_threads)
+    assert len(cs) == 7
+    assert set(map(len, cs)) == {1, 2}
+    assert {x for i in cs for x in i} == set(np.arange(n_comp))
+
+    # n_threads = 8
+    n_comp = 10
+    n_threads = 8
+    cs = get_chunks(n_comp, n_threads)
+    assert len(cs) == 8
+    assert set(map(len, cs)) == {1, 2}
+    assert {x for i in cs for x in i} == set(np.arange(n_comp))
+
+    # n_threads = 9
+    n_comp = 10
+    n_threads = 9
+    cs = get_chunks(n_comp, n_threads)
+    assert len(cs) == 9
+    assert set(map(len, cs)) == {1, 2}
+    assert {x for i in cs for x in i} == set(np.arange(n_comp))
+
+
+def test_get_chunks_n_small_n_threads_very_large():
+    # in all these cases, n_thread is at least as large as n_comp.
+    # that we are using all threads
+    # n_threads = 10
+    n_comp = 10
+    n_threads = 10
+    cs = get_chunks(n_comp, n_threads)
+    assert len(cs) == 10
+    assert set(map(len, cs)) == {1}
+    assert {x for i in cs for x in i} == set(np.arange(n_comp))
+
+    # n_threads = 11
+    n_comp = 10
+    n_threads = 11
+    cs = get_chunks(n_comp, n_threads)
+    assert len(cs) == 10
+    assert set(map(len, cs)) == {1}
+    assert {x for i in cs for x in i} == set(np.arange(n_comp))
+
+
+def test_get_chunks_ratio_is_one():
+    n_comp = 10
+    n_threads = 2
+    ratio = 1
+
+    cs = get_chunks(n_comp, n_threads, ratio)
+
+    assert len(cs) == 2
+    assert set(map(len, cs)) == {5}
+    assert {x for i in cs for x in i} == set(np.arange(n_comp))
+
+
+def test_get_chunks_ratio_is_two():
+    n_comp = 10
+    n_threads = 2
+    ratio = 2
+
+    cs = get_chunks(n_comp, n_threads, ratio)
+
+    assert len(cs) == 4
+    assert set(map(len, cs)) == {1, 3}
+    assert {x for i in cs for x in i} == set(np.arange(n_comp))
+
+
+def test_get_chunks_ratio_is_large():
+    # ratio = 4
+    n_comp = 10
+    n_threads = 2
+    ratio = 4
+
+    cs = get_chunks(n_comp, n_threads, ratio)
+
+    assert len(cs) == 8
+    assert set(map(len, cs)) == {1, 2}
+    assert {x for i in cs for x in i} == set(np.arange(n_comp))
+
+    # ratio = 5
+    n_comp = 10
+    n_threads = 2
+    ratio = 5
+
+    cs = get_chunks(n_comp, n_threads, ratio)
+
+    assert len(cs) == 10
+    assert set(map(len, cs)) == {1}
+    assert {x for i in cs for x in i} == set(np.arange(n_comp))
+
+    # ratio = 6
+    n_comp = 10
+    n_threads = 2
+    ratio = 6
+
+    cs = get_chunks(n_comp, n_threads, ratio)
+
+    assert len(cs) == 10
+    assert set(map(len, cs)) == {1}
+    assert {x for i in cs for x in i} == set(np.arange(n_comp))
+
+
+def test_get_chunks_iterable():
+    # here the first argument is an iterable, not an integer
+
+    # n_threads = 2
+    iterable = np.arange(10)
+    n_threads = 2
+    cs = get_chunks(iterable, n_threads)
+    assert len(cs) == 2
+    assert set(map(len, cs)) == {5}
+    assert {x for i in cs for x in i} == set(iterable)
+
+    # n_threads = 10
+    iterable = np.arange(10)
+    n_threads = 10
+    cs = get_chunks(iterable, n_threads)
+    assert len(cs) == 10
+    assert set(map(len, cs)) == {1}
+    assert {x for i in cs for x in i} == set(iterable)
+
+
+def test_cm_data_is_binary_evenly_distributed():
+    # Prepare
+    np.random.seed(0)
+
+    # two features with a quadratic relationship
+    feature0 = np.array([1, 1, 1, 1, 1, 0, 0, 0, 0, 0])
+    feature1 = np.random.rand(10)
+
+    # Run
+    cm_value, max_parts, parts = ccc(
+        feature0, feature1, internal_n_clusters=[2], return_parts=True
+    )
+
+    # Validate
+    assert cm_value < 0.05
+
+    assert parts is not None
+    assert len(parts) == 2
+    assert parts[0].shape == (1, 10)
+
+    # the partition should separate true from false values in data
+    assert ari(parts[0][0], feature0) == 1.0
+
+
+def test_cm_data_is_binary_not_evenly_distributed():
+    # Prepare
+    np.random.seed(0)
+
+    # two features with a quadratic relationship
+    feature0 = np.array([1, 1, 1, 1, 1, 1, 1, 1, 0, 0])
+    feature1 = np.random.rand(10)
+
+    # Run
+    cm_value, max_parts, parts = ccc(
+        feature0, feature1, internal_n_clusters=[2], return_parts=True
+    )
+
+    # Validate
+    assert cm_value < 0.05
+
+    assert parts is not None
+    assert len(parts) == 2
+    assert parts[0].shape == (1, 10)
+
+    # the partition should separate true from false values in data
+    assert ari(parts[0][0], feature0) == 1.0
+
+
+def test_cm_numerical_and_categorical_features_perfect_relationship():
+    # Prepare
+    np.random.seed(123)
+
+    # two features on 100 objects
+    numerical_feature0 = np.random.rand(100)
+    numerical_feature0_median = np.percentile(numerical_feature0, 50)
+
+    # create a categorical variable perfectly correlated with the numerical one (this is actually an ordinal feature)
+    categorical_feature1 = np.full(numerical_feature0.shape[0], "", dtype=np.unicode_)
+    categorical_feature1[numerical_feature0 < numerical_feature0_median] = "l"
+    categorical_feature1[numerical_feature0 >= numerical_feature0_median] = "u"
+    _unique_values = np.unique(categorical_feature1)
+    # some internal checks
+    assert _unique_values.shape[0] == 2
+    assert set(_unique_values) == {"l", "u"}
+
+    # Run
+    cm_value = ccc(numerical_feature0, categorical_feature1)
+    assert cm_value is not None
+    assert isinstance(cm_value, float)
+    assert cm_value == 1.0
+
+    # flip variables (symmetry)
+    assert ccc(categorical_feature1, numerical_feature0) == cm_value
+
+
+def test_cm_numerical_and_categorical_features_strong_relationship():
+    # Prepare
+    np.random.seed(123)
+
+    # two features on 100 objects
+    numerical_feature0 = np.random.rand(100)
+    numerical_feature0_perc = np.percentile(numerical_feature0, 25)
+
+    # create a categorical variable perfectly correlated with the numerical one (this is actually an ordinal feature)
+    categorical_feature1 = np.full(numerical_feature0.shape[0], "", dtype=np.unicode_)
+    categorical_feature1[numerical_feature0 < numerical_feature0_perc] = "l"
+    categorical_feature1[numerical_feature0 >= numerical_feature0_perc] = "u"
+    _unique_values = np.unique(categorical_feature1)
+    # some internal checks
+    assert _unique_values.shape[0] == 2
+    assert set(_unique_values) == {"l", "u"}
+
+    # Run
+    cm_value = ccc(numerical_feature0, categorical_feature1)
+    assert cm_value is not None
+    assert isinstance(cm_value, float)
+    assert cm_value == pytest.approx(0.326, abs=0.001)
+
+    # flip variables (symmetry)
+    assert ccc(categorical_feature1, numerical_feature0) == cm_value
+
+
+def test_cm_numerical_and_categorical_features_no_relationship():
+    # Prepare
+    np.random.seed(123)
+
+    # two features on 100 objects
+    numerical_feature0 = np.random.rand(100)
+
+    # create a categorical variable perfectly correlated with the numerical one (this is actually an ordinal feature)
+    categorical_feature1 = np.full(numerical_feature0.shape[0], "", dtype=np.unicode_)
+    categorical_feature1[numerical_feature0 < 0.50] = "l"
+    categorical_feature1[numerical_feature0 >= 0.50] = "u"
+    np.random.shuffle(categorical_feature1)
+    _unique_values = np.unique(categorical_feature1)
+    # some internal checks
+    assert _unique_values.shape[0] == 2
+    assert set(_unique_values) == {"l", "u"}
+
+    # Run
+    cm_value = ccc(numerical_feature0, categorical_feature1)
+    assert cm_value is not None
+    assert isinstance(cm_value, float)
+    assert cm_value == pytest.approx(0.01, abs=0.01)
+
+    # flip variables (symmetry)
+    assert ccc(categorical_feature1, numerical_feature0) == cm_value
+
+
+def test_cm_numerical_and_categorical_features_too_many_categories():
+    # Prepare
+    np.random.seed(123)
+
+    # two features on 100 objects
+    numerical_feature0 = np.random.rand(100)
+
+    # create a categorical variable perfectly correlated with the numerical one (this is actually an ordinal feature)
+    categorical_feature1 = np.full(numerical_feature0.shape[0], "cat100", dtype="S6")
+    for idx in range(categorical_feature1.shape[0]):
+        categorical_feature1[idx] = f"cat{idx:d}"
+    _unique_values = np.unique(categorical_feature1)
+    # some internal checks
+    assert _unique_values.shape[0] == 100
+
+    # Run
+    cm_value = ccc(numerical_feature0, categorical_feature1)
+    assert cm_value is not None
+    assert isinstance(cm_value, float)
+    assert cm_value == 0.0
+
+    # flip variables (symmetry)
+    assert ccc(categorical_feature1, numerical_feature0) == cm_value
+
+
+def test_cm_numerical_and_categorical_features_a_single_categorical_value():
+    # Prepare
+    np.random.seed(123)
+
+    # two features on 100 objects
+    numerical_feature0 = np.random.rand(100)
+
+    # create a categorical variable perfectly correlated with the numerical one (this is actually an ordinal feature)
+    categorical_feature1 = np.full(numerical_feature0.shape[0], "c", dtype="S1")
+    _unique_values = np.unique(categorical_feature1)
+    # some internal checks
+    assert _unique_values.shape[0] == 1
+
+    # Run
+    cm_value = ccc(numerical_feature0, categorical_feature1)
+    assert cm_value is not None
+    assert isinstance(cm_value, float)
+    assert cm_value == 0.0
+
+    # flip variables (symmetry)
+    assert ccc(categorical_feature1, numerical_feature0) == cm_value
+
+
+def test_cm_numerical_and_categorical_features_with_pandas_dataframe_two_features():
+    # Prepare
+    np.random.seed(123)
+
+    # two features on 100 objects
+    numerical_feature0 = np.random.rand(100)
+    numerical_feature0_median = np.percentile(numerical_feature0, 50)
+
+    # create a categorical variable perfectly correlated with the numerical one (this is actually an ordinal feature)
+    categorical_feature1 = np.full(numerical_feature0.shape[0], "", dtype=np.unicode_)
+    categorical_feature1[numerical_feature0 < numerical_feature0_median] = "l"
+    categorical_feature1[numerical_feature0 >= numerical_feature0_median] = "u"
+    _unique_values = np.unique(categorical_feature1)
+    # some internal checks
+    assert _unique_values.shape[0] == 2
+    assert set(_unique_values) == {"l", "u"}
+
+    data = pd.DataFrame(
+        {
+            "numerical_feature": numerical_feature0,
+            "categorical_feature": categorical_feature1,
+        }
+    )
+
+    # Run
+    cm_value = ccc(data)
+    assert cm_value is not None
+    assert isinstance(cm_value, float)
+    assert cm_value == 1.0
+
+    # flip variables (symmetry)
+    assert ccc(data.iloc[:, [1, 0]]) == cm_value
+
+
+def test_cm_numpy_array_input():
+    # Prepare
+    np.random.seed(123)
+
+    # here I force
+    data = np.random.rand(20, 100)
+
+    # Run
+    cm_value = ccc(data)
+
+    # Validate
+    assert cm_value is not None
+    assert isinstance(cm_value, np.ndarray)
+    assert cm_value.shape == (int(data.shape[0] * (data.shape[0] - 1) / 2),)
+    assert np.issubdtype(cm_value.dtype, float)
+
+
+@pytest.mark.skipif(os.cpu_count() < 2, reason="requires at least 2 cores")
+@pytest.mark.skipif(IN_GITHUB_ACTIONS, reason="Test doesn't work in Github Actions.")
+def test_cm_numpy_array_input_with_n_jobs():
+    # Prepare
+    np.random.seed(123)
+
+    # here I force
+    data = np.random.rand(100, 1000)
+
+    # Run
+    start_time = time.time()
+    res0 = ccc(data, n_jobs=1)
+    elapsed_time_single_thread = time.time() - start_time
+
+    start_time = time.time()
+    res1 = ccc(data, n_jobs=2)
+    elapsed_time_multi_thread = time.time() - start_time
+
+    # Validate
+    assert elapsed_time_multi_thread < 0.75 * elapsed_time_single_thread
+
+    assert res0 is not None
+    assert isinstance(res0, np.ndarray)
+    assert res0.shape == (int(data.shape[0] * (data.shape[0] - 1) / 2),)
+    assert np.issubdtype(res0.dtype, float)
+    np.testing.assert_array_equal(res0, res1)
+
+
+@pytest.mark.skipif(os.cpu_count() < 2, reason="requires at least 2 cores")
+@pytest.mark.skipif(IN_GITHUB_ACTIONS, reason="Test doesn't work in Github Actions.")
+def test_cm_two_features_input_with_n_jobs():
+    # Prepare
+    np.random.seed(123)
+
+    # here I force
+    x = np.random.rand(100000)
+    y = np.random.rand(100000)
+
+    # Run
+    start_time = time.time()
+    res0 = ccc(x, y, n_jobs=1)
+    elapsed_time_single_thread = time.time() - start_time
+
+    start_time = time.time()
+    res1 = ccc(x, y, n_jobs=2)
+    elapsed_time_multi_thread = time.time() - start_time
+
+    # Validate
+    assert elapsed_time_multi_thread < 0.75 * elapsed_time_single_thread
+
+    assert res0 is not None
+    assert isinstance(res0, float)
+    assert res0 == res1
+
+
+@pytest.mark.skipif(os.cpu_count() < 2, reason="requires at least 2 cores")
+@pytest.mark.skipif(IN_GITHUB_ACTIONS, reason="Test doesn't work in Github Actions.")
+def test_cm_two_features_input_with_n_jobs_using_threads_for_partitioning():
+    # Prepare
+    np.random.seed(123)
+
+    # here I force
+    x = np.random.rand(100000)
+    y = np.random.rand(100000)
+
+    # Run
+    start_time = time.time()
+    res0 = ccc(x, y, n_jobs=1)
+    elapsed_time_single_thread = time.time() - start_time
+
+    start_time = time.time()
+    res1 = ccc(x, y, n_jobs=2, partitioning_executor="thread")
+    elapsed_time_multi_thread = time.time() - start_time
+
+    # Validate
+    assert elapsed_time_multi_thread < 0.75 * elapsed_time_single_thread
+
+    assert res0 is not None
+    assert isinstance(res0, float)
+    assert res0 == res1
+
+
+@pytest.mark.skipif(os.cpu_count() < 2, reason="requires at least 2 cores")
+@pytest.mark.skipif(IN_GITHUB_ACTIONS, reason="Test doesn't work in Github Actions.")
+def test_cm_two_features_input_with_n_jobs_using_process_for_partitioning():
+    # Prepare
+    np.random.seed(123)
+
+    # here I force
+    x = np.random.rand(100000)
+    y = np.random.rand(100000)
+
+    # Run
+    start_time = time.time()
+    res0 = ccc(x, y, n_jobs=1)
+    elapsed_time_single_thread = time.time() - start_time
+
+    start_time = time.time()
+    res1 = ccc(x, y, n_jobs=2, partitioning_executor="process")
+    elapsed_time_multi_thread = time.time() - start_time
+
+    # Validate
+    # less stringent than with threads, because the overhead of using processes
+    # seems to be larger
+    assert elapsed_time_multi_thread < elapsed_time_single_thread
+
+    assert res0 is not None
+    assert isinstance(res0, float)
+    assert res0 == res1x
+
+
+def test_cm_with_pandas_dataframe_several_features():
+    # Prepare
+    np.random.seed(123)
+
+    # here I force
+    data = pd.DataFrame(np.random.rand(20, 100))
+
+    # Run
+    cm_value = ccc(data, internal_n_clusters=3)
+
+    # Validate
+    assert cm_value is not None
+    assert isinstance(cm_value, np.ndarray)
+    assert cm_value.shape == (int(data.shape[1] * (data.shape[1] - 1) / 2),)
+    assert np.issubdtype(cm_value.dtype, float)
+
+
+def test_cm_with_too_few_objects():
+    # Prepare
+    np.random.seed(123)
+
+    # here I force
+    data = np.random.rand(10, 2)
+
+    # Run
+    with pytest.raises(ValueError) as e:
+        ccc(data, internal_n_clusters=3)
+
+    assert "too few objects" in str(e.value)

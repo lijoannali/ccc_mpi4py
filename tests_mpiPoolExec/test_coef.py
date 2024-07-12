@@ -342,7 +342,7 @@ class TestGetRangeNClusters(unittest.TestCase):
         y = pd.DataFrame(np.random.rand(10, 100))
         with self.assertRaises(ValueError) as e:
             ccc(x, y)
-        self.assertIn("wrong combination", str(e.exception).lower())
+        self.assertIn("wrong combination", str(e.exception).lower()) 
 
     def test_cm_integer_overflow_random(self): #checked
         np.random.seed(0)
@@ -531,7 +531,7 @@ class TestGetRangeNClusters(unittest.TestCase):
             observed_cdist = cdist_parts_parallel(parts0, parts1, executor)
         np.testing.assert_array_equal(observed_cdist, expected_cdist)
 
-     def test_get_coords_from_index(self): #checked
+    def test_get_coords_from_index(self): #checked
         # data is an example with n_obj = 5 just to illustrate
         # data = np.array(
         #     [
@@ -559,7 +559,7 @@ class TestGetRangeNClusters(unittest.TestCase):
         res = get_coords_from_index(n_obj, 9)
         self.assertEqual(res, (3, 4))
 
-    def test_get_coords_from_index_smaller(self):
+    def test_get_coords_from_index_smaller(self): #checked
         # data is an example with n_obj = 5 just to illustrate
         # data = np.array(
         #     [
@@ -586,10 +586,10 @@ class TestGetRangeNClusters(unittest.TestCase):
         res = get_coords_from_index(n_obj, 5)
         self.assertEqual(res, (2, 3))
 
-    def setUp(self):
+    def setUp(self): #skipped
         self.input_data_dir = Path(__file__).parent / "data"
 
-    def test_cm_values_equal_to_original_implementation(self):
+    def test_cm_values_equal_to_original_implementation(self): #skipped
         data = pd.read_pickle(self.input_data_dir / "ccc-random_data-data.pkl")
         data = data.to_numpy()
 
@@ -601,7 +601,7 @@ class TestGetRangeNClusters(unittest.TestCase):
 
         np.testing.assert_almost_equal(expected_corr_matrix, corr_mat)
 
-    def test_cm_return_parts_quadratic(self):
+    def test_cm_return_parts_quadratic(self): #checked 
         np.random.seed(0)
 
         feature0 = np.array([-4, -3, -2, -1, 0, 0, 1, 2, 3, 4])
@@ -625,7 +625,7 @@ class TestGetRangeNClusters(unittest.TestCase):
         self.assertEqual(max_parts.shape, (2,))
         np.testing.assert_array_equal(max_parts, np.array([1, 0]))
 
-    def test_cm_return_parts_linear(self):
+    def test_cm_return_parts_linear(self): #checked
         np.random.seed(0)
 
         feature0 = np.random.rand(100)
@@ -643,45 +643,68 @@ class TestGetRangeNClusters(unittest.TestCase):
         self.assertIsNotNone(max_parts)
         self.assertTrue(hasattr(max_parts, "shape"))
         self.assertEqual(max_parts.shape, (2,))
+        # even in this test we do not specify internal_n_clusters (so it goes from
+        # k=2 to k=10, nine partitions), k=2 for both features should already have
+        # the maximum value
         np.testing.assert_array_equal(max_parts, np.array([0, 0]))
 
-    def test_cm_return_parts_categorical_variable(self):
+    def test_cm_return_parts_categorical_variable(self): #checked and corrected
         np.random.seed(0)
 
         numerical_feature0 = np.random.rand(100)
         numerical_feature0_median = np.percentile(numerical_feature0, 50)
 
+        # create a categorical variable perfectly correlated with the numerical one (this is actually an ordinal feature)
         categorical_feature1 = np.full(numerical_feature0.shape[0], "", dtype=np.unicode_)
         categorical_feature1[numerical_feature0 < numerical_feature0_median] = "l"
         categorical_feature1[numerical_feature0 >= numerical_feature0_median] = "u"
+        _unique_values = np.unique(categorical_feature1)
 
-        cm_value, max_parts, parts = ccc(numerical_feature0, categorical_feature1, return_parts=True)
+        #some internal checks 
+        self.assertEqual(_unique_values.shape[0], 2)
+        self.assertEqual(set(_unique_values), {"l", "u"})
 
+        #Run
+        cm_value, max_parts, parts = ccc(
+            numerical_feature0, categorical_feature1, return_parts=True
+        )
+
+        #Validate
         self.assertEqual(cm_value, 1.0)
 
         self.assertIsNotNone(parts)
         self.assertEqual(len(parts), 2)
 
+        #For numerical_feature0 all partitions should be there
         self.assertEqual(parts[0].shape, (9, 100))
         self.assertEqual(set(range(2, 10 + 1)), set(map(lambda x: np.unique(x).shape[0], parts[0])))
 
+        #for categorical_feature1 only the first partition is meaningful
         self.assertEqual(parts[1].shape, (9, 100))
         self.assertEqual(np.unique(parts[1][0, :]).shape[0], 2)
-        unique_in_rest = np.unique(parts[1][1:, :])
-        self.assertEqual(unique_in_rest.shape[0], 1)
-        self.assertEqual(unique_in_rest[0], -1)
+        _unique_in_rest = np.unique(parts[1][1:, :])
+        self.assertEqual(_unique_in_rest.shape[0], 1)
+        self.assertEqual(_unique_in_rest[0], -1)
 
         self.assertIsNotNone(max_parts)
         self.assertTrue(hasattr(max_parts, "shape"))
         self.assertEqual(max_parts.shape, (2,))
+        # even in this test we do not specify internal_n_clusters (so it goes from
+        # k=2 to k=10, nine partitions), k=2 for both features should already have
+        # the maximum value
         np.testing.assert_array_equal(max_parts, np.array([0, 0]))
 
-    def test_cm_return_parts_with_matrix_as_input(self):
+    def test_cm_return_parts_with_matrix_as_input(self): #checked
         np.random.seed(0)
 
         feature0 = np.random.rand(100)
         feature1 = feature0 * 5.0
-        X = pd.DataFrame({"feature0": feature0, "feature1": feature1})
+        X = pd.DataFrame(
+            {
+                "feature0": feature0, 
+                "feature1": feature1
+                }
+        )
 
         cm_value, max_parts, parts = ccc(X, return_parts=True)
 
@@ -695,70 +718,310 @@ class TestGetRangeNClusters(unittest.TestCase):
         self.assertIsNotNone(max_parts)
         self.assertTrue(hasattr(max_parts, "shape"))
         self.assertEqual(max_parts.shape, (2,))
+        # even in this test we do not specify internal_n_clusters (so it goes from
+        # k=2 to k=10, nine partitions), k=2 for both features should already have
+        # the maximum value (because the relationship is linear)
         np.testing.assert_array_equal(max_parts, np.array([0, 0]))
+    
+    def test_get_chunks_n_large(self): #checked
+        # n = 100 (even)
+        n_comp = 100
+        n_threads = 2
 
-    def test_cm_data_is_binary_evenly_distributed(self):
-        np.random.seed(0)
+        cs = get_chunks(n_comp, n_threads)
 
-        feature0 = np.array([1, 1, 1, 1, 1, 0, 0, 0, 0, 0])
-        feature1 = np.random.rand(10)
+        self.assertEqual(len(cs), 2)
+        self.assertEqual(set(map(len, cs)), {50})
+        self.assertEqual({x for i in cs for x in i}, set(np.arange(n_comp)))
 
-        cm_value, _, parts = ccc(feature0, feature1, internal_n_clusters=[2], return_parts=True)
+        # n = 100 (even)
+        n_comp = 100
+        n_threads = 5
 
-        self.assertLess(cm_value, 0.05)
+        cs = get_chunks(n_comp, n_threads)
 
-        self.assertIsNotNone(parts)
-        self.assertEqual(len(parts), 2)
-        self.assertEqual(parts[0].shape, (1, 10))
+        self.assertEqual(len(cs), 5)
+        self.assertEqual(set(map(len, cs)), {20})
+        self.assertEqual({x for i in cs for x in i}, set(np.arange(n_comp)))
 
-        self.assertEqual(ari(parts[0][0], feature0), 1.0)
+        # n = 100 (even) not equal groups
+        n_comp = 100
+        n_threads = 8
 
-    def test_cm_data_is_binary_not_evenly_distributed(self):
-        np.random.seed(0)
+        cs = get_chunks(n_comp, n_threads)
 
-        feature0 = np.array([1, 1, 1, 1, 1, 1, 1, 1, 0, 0])
-        feature1 = np.random.rand(10)
+        self.assertEqual(len(cs), 8)
+        self.assertEqual(set(map(len, cs)), [{9, 13}])
+        self.assertEqual({x for i in cs for x in i}, set(np.arange(n_comp)))
 
-        cm_value, _, parts = ccc(feature0, feature1, internal_n_clusters=[2], return_parts=True)
+        # n = 101 (odd)
+        n_comp = 101
+        n_threads = 2
 
-        self.assertLess(cm_value, 0.05)
+        cs = get_chunks(n_comp, n_threads)
 
-        self.assertIsNotNone(parts)
-        self.assertEqual(len(parts), 2)
-        self.assertEqual(parts[0].shape, (1, 10))
+        self.assertEqual(len(cs), 2)
+        self.assertEqual(set(map(len, cs)), [{50, 51}])
+        self.assertEqual({x for i in cs for x in i}, set(np.arange(n_comp)))
 
-        self.assertEqual(ari(parts[0][0], feature0), 1.0)
+    def test_get_chunks_n_small(self): #checked
+        # n = 10
+        n_comp = 10
+        n_threads = 2
 
-    def test_cm_numerical_and_categorical_features_perfect_relationship(self):
-        np.random.seed(123)
+        cs = get_chunks(n_comp, n_threads)
 
-        numerical_feature0 = np.random.rand(100)
-        numerical_feature0_median = np.percentile(numerical_feature0, 50)
+        # for this cases, an automatic ratio will avoid singleton chunks, and
+        # instead will generate n_threads groups
+        self.assertEqual(len(cs), 2)
+        self.assertEqual(set(map(len, cs)), {5})
+        self.assertEqual({x for i in cs for x in i}, set(np.arange(n_comp)))
 
-        categorical_feature1 = np.full(numerical_feature0.shape[0], "", dtype=np.unicode_)
-        categorical_feature1[numerical_feature0 < numerical_feature0_median] = "l"
-        categorical_feature1[numerical_feature0 >= numerical_feature0_median] = "u"
+        # n = 10
+        n_comp = 10
+        n_threads = 5
 
-        cm_value = ccc(numerical_feature0, categorical_feature1)
-        self.assertEqual(cm_value, 1.0)
+        cs = get_chunks(n_comp, n_threads)
 
-        self.assertEqual(ccc(categorical_feature1, numerical_feature0), cm_value)
+        self.assertEqual(len(cs), 5)
+        self.assertEqual(set(map(len, cs)), {2})
+        self.assertEqual({x for i in cs for x in i}, set(np.arange(n_comp)))
 
-    def test_cm_numerical_and_categorical_features_strong_relationship(self):
-        np.random.seed(123)
+        # n = 11
+        n_comp = 11
+        n_threads = 2
 
-        numerical_feature0 = np.random.rand(100)
-        numerical_feature0_perc = np.percentile(numerical_feature0, 25)
+        cs = get_chunks(n_comp, n_threads)
 
-        categorical_feature1 = np.full(numerical_feature0.shape[0], "", dtype=np.unicode_)
-        categorical_feature1[numerical_feature0 < numerical_feature0_perc] = "l"
-        categorical_feature1[numerical_feature0 >= numerical_feature0_perc] = "u"
+        # for this case, it will avoid singleton chunks
+        self.assertEqual(len(cs), 2)
+        self.assertEqual(set(map(len, cs)), [{5, 6}])
+        self.assertEqual({x for i in cs for x in i}, set(np.arange(n_comp)))
 
-        cm_value = ccc(numerical_feature0, categorical_feature1)
+        # n = 10 and n_threads is odd
+        n_comp = 10
+        n_threads = 3
 
-        self.assertGreater(cm_value, 0.3)
+        cs = get_chunks(n_comp, n_threads)
 
-        self.assertLess(ccc(categorical_feature1, numerical_feature0), cm_value)
+        self.assertEqual(len(cs), 3)
+        self.assertEqual(set(map(len, cs)), [{4, 2}])
+        self.assertEqual({x for i in cs for x in i}, set(np.arange(n_comp)))
+
+    def test_get_chunks_n_small_n_threads_large(self): #checked
+        # in all these cases, n_thread is larger than n_comp / 2, but always
+        # smaller than n_comp. The problem in this test is that we want to make sure
+        # that we are using all threads
+
+        # n_threads = 6
+        n_comp = 10
+        n_threads = 6
+        cs = get_chunks(n_comp, n_threads)
+        self.assertEqual(len(cs), 6)
+        self.assertEqual(set(map(len, cs)), [{1, 2}])
+        self.assertEqual({x for i in cs for x in i}, set(np.arange(n_comp)))
+
+        # n_threads = 7
+        n_comp = 10
+        n_threads = 7
+        cs = get_chunks(n_comp, n_threads)
+        self.assertEqual(len(cs), 7)
+        self.assertEqual(set(map(len, cs)), [{1, 2}])
+        self.assertEqual({x for i in cs for x in i}, set(np.arange(n_comp)))
+
+        # n_threads = 8
+        n_comp = 10
+        n_threads = 8
+        cs = get_chunks(n_comp, n_threads)
+        self.assertEqual(len(cs), 8)
+        self.assertEqual(set(map(len, cs)), [{1, 2}])
+        self.assertEqual({x for i in cs for x in i}, set(np.arange(n_comp)))
+
+        # n_threads = 9
+        n_comp = 10
+        n_threads = 9
+        cs = get_chunks(n_comp, n_threads)
+        self.assertEqual(len(cs), 9)
+        self.assertEqual(set(map(len, cs)), [{1, 2}])
+        self.assertEqual({x for i in cs for x in i}, set(np.arange(n_comp)))
+
+    def test_get_chunks_n_small_n_threads_very_large(self): #checked
+        # in all these cases, n_thread is at least as large as n_comp.
+        # that we are using all threads
+        # n_threads = 10
+        n_comp = 10
+        n_threads = 10
+        cs = get_chunks(n_comp, n_threads)
+        self.assertEqual(len(cs), 10)
+        self.assertEqual(set(map(len, cs)), [{1}])
+        self.assertEqual({x for i in cs for x in i}, set(np.arange(n_comp)))
+
+        # n_threads = 11
+        n_comp = 10
+        n_threads = 11
+        cs = get_chunks(n_comp, n_threads)
+        self.assertEqual(len(cs), 10)
+        self.assertEqual(set(map(len, cs)), [{1}])
+        self.assertEqual({x for i in cs for x in i}, set(np.arange(n_comp)))
+
+    def test_get_chunks_ratio_is_one(self): #checked
+        n_comp = 10
+        n_threads = 2
+        ratio = 1
+
+        cs = get_chunks(n_comp, n_threads, ratio)
+
+        self.assertEqual(len(cs), 2)
+        self.assertEqual(set(map(len, cs)), {5})
+        self.assertEqual({x for i in cs for x in i}, set(np.arange(n_comp)))
+
+#     def test_get_chunks_ratio_is_two(self):
+#         n_comp = 10
+#         n_threads = 2
+#         ratio = 2
+
+#         cs = get_chunks(n_comp, n_threads, ratio)
+
+#         self.assertEqual(len(cs), 4)
+#         self.assertIn(set(map(len, cs)), [{1, 3}])
+#         self.assertEqual({x for i in cs for x in i}, set(np.arange(n_comp)))
+
+#     def test_get_chunks_ratio_is_large(self):
+#         # ratio = 4
+#         n_comp = 10
+#         n_threads = 2
+#         ratio = 4
+
+#         cs = get_chunks(n_comp, n_threads, ratio)
+
+#         self.assertEqual(len(cs), 8)
+#         self.assertIn(set(map(len, cs)), [{1, 2}])
+#         self.assertEqual({x for i in cs for x in i}, set(np.arange(n_comp)))
+
+#         # ratio = 5
+#         n_comp = 10
+#         n_threads = 2
+#         ratio = 5
+
+#         cs = get_chunks(n_comp, n_threads, ratio)
+
+#         self.assertEqual(len(cs), 10)
+#         self.assertIn(set(map(len, cs)), [{1}])
+#         self.assertEqual({x for i in cs for x in i}, set(np.arange(n_comp)))
+
+#         # ratio = 6
+#         n_comp = 10
+#         n_threads = 2
+#         ratio = 6
+
+#         cs = get_chunks(n_comp, n_threads, ratio)
+
+#         self.assertEqual(len(cs), 10)
+#         self.assertIn(set(map(len, cs)), [{1}])
+#         self.assertEqual({x for i in cs for x in i}, set(np.arange(n_comp)))
+
+#     def test_get_chunks_iterable(self):
+#         # here the first argument is an iterable, not an integer
+
+#         # n_threads = 2
+#         iterable = np.arange(10)
+#         n_threads = 2
+#         cs = get_chunks(iterable, n_threads)
+#         self.assertEqual(len(cs), 2)
+#         self.assertEqual(set(map(len, cs)), {5})
+#         self.assertEqual({x for i in cs for x in i}, set(iterable))
+
+#         # n_threads = 10
+#         iterable = np.arange(10)
+#         n_threads = 10
+#         cs = get_chunks(iterable, n_threads)
+#         self.assertEqual(len(cs), 10)
+#         self.assertEqual(set(map(len, cs)), {1})
+#         self.assertEqual({x for i in cs for x in i}, set(iterable))
+
+#     def test_cm_data_is_binary_evenly_distributed(self):
+#         # Prepare
+#         np.random.seed(0)
+
+#         # two features with a quadratic relationship
+#         feature0 = np.array([1, 1, 1, 1, 1, 0, 0, 0, 0, 0])
+#         feature1 = np.random.rand(10)
+
+#         # Run
+#         cm_value, max_parts, parts = ccc(
+#             feature0, feature1, internal_n_clusters=[2], return_parts=True
+#         )
+
+#         # Validate
+#         self.assertLess(cm_value, 0.05)
+
+#         self.assertIsNotNone(parts)
+#         self.assertEqual(len(parts), 2)
+#         self.assertEqual(parts[
+
+#     #continue checking here after adding the chunks unit tests
+#     def test_cm_data_is_binary_evenly_distributed(self):
+#         np.random.seed(0)
+
+#         feature0 = np.array([1, 1, 1, 1, 1, 0, 0, 0, 0, 0])
+#         feature1 = np.random.rand(10)
+
+#         cm_value, _, parts = ccc(feature0, feature1, internal_n_clusters=[2], return_parts=True)
+
+#         self.assertLess(cm_value, 0.05)
+
+#         self.assertIsNotNone(parts)
+#         self.assertEqual(len(parts), 2)
+#         self.assertEqual(parts[0].shape, (1, 10))
+
+#         self.assertEqual(ari(parts[0][0], feature0), 1.0)
+
+#     def test_cm_data_is_binary_not_evenly_distributed(self):
+#         np.random.seed(0)
+
+#         feature0 = np.array([1, 1, 1, 1, 1, 1, 1, 1, 0, 0])
+#         feature1 = np.random.rand(10)
+
+#         cm_value, _, parts = ccc(feature0, feature1, internal_n_clusters=[2], return_parts=True)
+
+#         self.assertLess(cm_value, 0.05)
+
+#         self.assertIsNotNone(parts)
+#         self.assertEqual(len(parts), 2)
+#         self.assertEqual(parts[0].shape, (1, 10))
+
+#         self.assertEqual(ari(parts[0][0], feature0), 1.0)
+
+#     def test_cm_numerical_and_categorical_features_perfect_relationship(self):
+#         np.random.seed(123)
+
+#         numerical_feature0 = np.random.rand(100)
+#         numerical_feature0_median = np.percentile(numerical_feature0, 50)
+
+#         categorical_feature1 = np.full(numerical_feature0.shape[0], "", dtype=np.unicode_)
+#         categorical_feature1[numerical_feature0 < numerical_feature0_median] = "l"
+#         categorical_feature1[numerical_feature0 >= numerical_feature0_median] = "u"
+
+#         cm_value = ccc(numerical_feature0, categorical_feature1)
+#         self.assertEqual(cm_value, 1.0)
+
+#         self.assertEqual(ccc(categorical_feature1, numerical_feature0), cm_value)
+
+#     def test_cm_numerical_and_categorical_features_strong_relationship(self):
+#         np.random.seed(123)
+
+#         numerical_feature0 = np.random.rand(100)
+#         numerical_feature0_perc = np.percentile(numerical_feature0, 25)
+
+#         categorical_feature1 = np.full(numerical_feature0.shape[0], "", dtype=np.unicode_)
+#         categorical_feature1[numerical_feature0 < numerical_feature0_perc] = "l"
+#         categorical_feature1[numerical_feature0 >= numerical_feature0_perc] = "u"
+
+#         cm_value = ccc(numerical_feature0, categorical_feature1)
+
+#         self.assertGreater(cm_value, 0.3)
+
+#         self.assertLess(ccc(categorical_feature1, numerical_feature0), cm_value)
 
 if __name__ == '__main__': 
     unittest.main()
