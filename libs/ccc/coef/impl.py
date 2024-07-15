@@ -792,7 +792,7 @@ def ccc(
             max_part_idx_list,
             pvalues,
         ) in zip(  # Joanna: line with long execution time
-            inputs, map_func(compute_coef, inputs)
+            inputs, map(compute_coef, inputs) #Joanna: Hardcoded map_func to map() 
         ):
         #     print(f'calc max lists, rank:, {rank}')
             f_idx = params[0]
