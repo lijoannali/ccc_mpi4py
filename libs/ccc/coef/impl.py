@@ -734,12 +734,12 @@ def ccc(
             ]
             for chunk in inputs
         ]
+        count = 0 
         # 1st Parallel Step / Partitioning 
         for params, ps in zip(
-            inputs, map_func(get_feature_parts, inputs)
+            inputs, map_func(get_feature_parts, inputs) 
         ):  # Joanna: Loop with long execution time
             # get the set of feature indexes and cluster indexes
-            # time.sleep(.5) #To make more threads run
             print(f'after flatten input, rank: {rank} thread {threading.current_thread().name}')
             for thread in threading.enumerate():
                 print(f'thread names, {thread.name}')
@@ -748,7 +748,9 @@ def ccc(
 
             # update the partitions for each feature-k pair
             parts[f_idxs, c_idxs] = ps
-
+            count+=1
+            print(f'count: {count}')
+        #executor.shutdown()
         # Below, there are two layers of parallelism: 1) parallel execution
         # across feature pairs and 2) the cdist_parts_parallel function, which
         # also runs several threads to compare partitions using ari. In 2) we
@@ -763,12 +765,14 @@ def ccc(
         if default_n_threads > 1: #If yes, use Python concurrency, otherwise map_func = map() and program is serial
             if n_features_comp == 1: 
                 #Joanna: This sets up parameters for compute_coef which are passed through inputs
+                print("Using two layers")
                 map_func = map
                 cdist_executor = executor
-                inner_executor = pexecutor 
+                inner_executor = executor
 
             else:
                 #Joanna: This means cdist_parts_basic is used instead of cdist_parts_parallel if there is more than 1 feature
+                print("Using one layer")
                 map_func = pexecutor.map 
 
         # iterate over all chunks of object pairs and compute the coefficient
@@ -795,13 +799,14 @@ def ccc(
             inputs, map(compute_coef, inputs) #Joanna: Hardcoded map_func to map() 
         ):
         #     print(f'calc max lists, rank:, {rank}')
+            print(f'In second step, thread:{threading.current_thread().name}')
+            for thread in threading.enumerate():
+                print(f' name: {thread.name}')
             f_idx = params[0]
-
             cm_values[f_idx] = max_ari_list
             max_parts[f_idx, :] = max_part_idx_list
             cm_pvalues[f_idx] = pvalues
-            # print("num threads", len(executor._threads))
-            # print(f'calc max lists, thread: {threading.current_thread().name}')
+
 
     # return an array of values or a single scalar, depending on the input data
     if cm_values.shape[0] == 1:
