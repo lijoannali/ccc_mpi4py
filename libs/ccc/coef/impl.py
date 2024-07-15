@@ -692,9 +692,11 @@ def ccc(
     comm = MPI.COMM_WORLD
     size = comm.Get_size()
     rank = comm.Get_rank()
+
+    print(default_n_threads)
     
     with (
-        ThreadPoolExecutor(max_workers=2, thread_name_prefix='PartitioningThread') as executor, #Joanna: added param to give threads custom name prefix
+        ThreadPoolExecutor(max_workers=default_n_threads, thread_name_prefix='PartitioningThread') as executor, #Joanna: added param to give threads custom name prefix
         MPIPoolExecutor(max_workers=default_n_threads) as pexecutor,
     ):
         map_func = map
@@ -758,16 +760,16 @@ def ccc(
         cdist_executor = False
         inner_executor = DummyExecutor()
 
-        if default_n_threads > 1:
-            if n_features_comp == 1:
+        if default_n_threads > 1: #If yes, use Python concurrency, otherwise map_func = map() and program is serial
+            if n_features_comp == 1: 
                 #Joanna: This sets up parameters for compute_coef which are passed through inputs
                 map_func = map
                 cdist_executor = executor
-                inner_executor = pexecutor
+                inner_executor = pexecutor 
 
             else:
-                #Joanna: This means cdist_parts_basic is used instead of cdist_parts_parallel
-                map_func = pexecutor.map
+                #Joanna: This means cdist_parts_basic is used instead of cdist_parts_parallel if there is more than 1 feature
+                map_func = pexecutor.map 
 
         # iterate over all chunks of object pairs and compute the coefficient
         inputs = get_chunks(n_features_comp, default_n_threads, n_chunks_threads_ratio)
@@ -792,7 +794,7 @@ def ccc(
         ) in zip(  # Joanna: line with long execution time
             inputs, map_func(compute_coef, inputs)
         ):
-            print(f'calc max lists, rank:, {rank}')
+        #     print(f'calc max lists, rank:, {rank}')
             f_idx = params[0]
 
             cm_values[f_idx] = max_ari_list
