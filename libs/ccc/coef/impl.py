@@ -737,7 +737,7 @@ def ccc(
         count = 0 
         # 1st Parallel Step / Partitioning 
         for params, ps in zip(
-            inputs, map_func(get_feature_parts, inputs) 
+            inputs, map_func(get_feature_parts, inputs) #Hardcode change from map_func to map, turn off 1st step parallelization
         ):  # Joanna: Loop with long execution time
             # get the set of feature indexes and cluster indexes
             print(f'after flatten input, rank: {rank} thread {threading.current_thread().name}')
